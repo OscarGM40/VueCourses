@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script defer src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- fijate que es necesario el CDN antes del script -->
+  <script defer src="app.js"></script>
+  <title>Vue.js Intro</title>
+</head>
+
+<body>
+  <!-- Vue va a tener control absoluto de este div -->
+  <div id="myApp">
+    <h1>App Vue progresiva embebida</h1>
+    <h3>{{quote}}</h3>
+    <blockquote>-{{author}}</blockquote>
+    <br>
+    <button v-on:click="changeQuote">
+      Change quote
+    </button>
+    <br>
+    <br>
+    <button v-on:click="capitalize">
+      Capitalize Author
+    </button>
+  </div>
+</body>
+
+</html>

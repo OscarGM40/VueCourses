@@ -1,0 +1,702 @@
+					CURSO VUE-JS FERNANDO HERRERA UDEMY
+
+Ahora mismo hay dos formas de trabajar en vue.Una es con la Options API,la otra con la Composition API.La primera es más antigüa,la segunda parece que es la opción por donde seguirá.Dado que podría encontrarme con una aplicación legacy que use la Options API veremos las dos.
+
+NOTA: la sección dos es un reforzamiento de Javascript.Fernando comenta que tiene un curso de Javascript moderno que puedo recomendar a iniciantes.
+
+Se recomienda consultar el PDF cada vez que necesite refrescar conceptos sobre una u otra API,ya que es un curso largo.
+
+Instalaciones necesarias: Node Js - Visual Studio Code y Google Chrome
+
+VueCLI: npm install -g @vue/cli (comprobar con vue --version)
+Vetur: extensión para VSC
+Vue DevTools | Vue DevTools Beta: plugin para Google Chrome
+FH recalca que la extensión Typescript Importer la considera básica.
+
+				SECCION DOS - REFORZAMIENTO DE JAVASCRIPT
+
+IMPORTANTE: recuerda que en Javascript los objetos son pasados por referencia y no por valor asi que si tengo un obj1 asi:
+
+const persona ={
+  nombre:'Peter',
+  apellido:'Parker'
+ }
+si ahora apunto con otro objeto a éste igualo las referencias:
+const persona2 = persona;
+persona2.nombre = 'Pete' 
+ahora persona.nombre habrá cambiado
+Esto hay que tener en cuenta al asignar objetos literales( o no literales) a otro objeto.Bien,al final lo que queremos es romper la referencia con el operador spread:
+
+const persona2 = {...persona}; <- rompe la referencia a la memoria y se pasa solo el valor
+
+NOTA: fijate que puedo desesctructurar lo que retorna una función.Obviamente cuando retorne un objeto o array:
+
+const heroes =[ { id: 1, name: 'Batman' } ];
+const {id,name} = heroes.find(h => h.id === 1);
+
+NOTA: una Promesa no es más que código asincrono que se ejecuta tras un tiempo concreto.
+Para crear una instancia de axios y no tener que mandar el token siempre:
+
+const apiKey='sadfasdf'
+const myInstance = axios.create({
+  baseURL:'https://api.giphy.com/v1/gifs',
+  params:{ 
+    api_key: apiKey
+});
+
+luego simplemente uso la instancia y el .get,.post,etc:
+  myInstance.get('/random')
+
+Recuerda que axios ya hace el .json();
+
+					SECCION 03 INTRODUCCION A VUE
+
+Usaremos Vue como CDN.Vue es un framework progresivo,puedo tener una aplicación en React y tener un contenedor que va a ser controlado únicamente por Vue(realmente Vue podría tener control sobre el exterior de ese contenedor tmb,o sea la app)
+Veremos las bases de Vue,con sus directivas estructurales más comunes.
+
+En esta sección tocaremos las bases generales sobre Vue.js, creando una pequeña aplicación encapsulada y demostrando el por qué es un framework progresivo.
+
+Veremos los siguientes temas de forma general:
+1. Options Api
+2. Métodos
+3. Eventos
+4. Modificadores de eventos
+5. Propiedades reactivas
+6. Directivas
+  a. v-if
+  b. v-show
+  c. v-for
+7. Crear una aplicación / componente
+8. Y más
+
+Esta sección tiene por objetivo darnos el empujón inicial para romper la barrera de entrada al Framework de Vue.js
+
+				VIDEO 28 BREVE INTRODUCCION SOBRE VUE
+
+Vue se proclama como fácil de iniciar en él,versátil(ecosistema escalable) y de gran rendimiento(dom virtual superrápido).
+NOTA: Vue es un framework(progresivo) lo cual indica que tiene todas las herramientas ya embebidas en el framework(no es una libreria).Y es progresivo porque puedo migrar progresivamente cualquier aplicación a Vue.Esto suena muy interesante,asinto.
+
+Fernando provee el siguiente enlace con la documentación oficial de Vue:
+https://vuejs.org/guide/quick-start.html#creating-a-vue-application
+
+Desde aqui creamos un simple html y nos traemos la CDN.Esto me da acceso al objeto global Vue, con lo que en un javascript puedo usar este código:
+
+<head>
+  <meta charset="UTF-8">
+  <script defer src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script defer src="app.js"></script>
+  <title>Vue.js Intro</title>
+</head>
+
+<body>
+  <!-- Vue va a tener control absoluto de este div,ya que lo "reclamaremos" -->
+  <div id="myApp"></div>
+</body>
+
+</html>
+
+Y en el app.js:
+// recuerda que Vue es progresivo,es decir,que tengo que especificar a Vue en donde voy a inyectar este codigo
+const app = Vue.createApp({
+  template: `
+    <h1>Hola mundo</h1>
+    <p>Desde app.js</p>
+  `
+});
+// y para ello tengo que decir donde quiero que se monte con app.mount(CSSselector:string)
+app.mount("#myApp"); <- desde aqui Vue controla ese <div>
+
+			VIDEO 31 -DECLARATIVE RENDERING(REPRESENTACION DECLARATIVA)
+
+Queremos separar la template del js y entrar en el concepto de declarative rendering.
+NOTA: si quiero usar una expresión embebida en Vue es con doble llave:
+const app = Vue.createApp({
+  template: `
+    <h1>Hola mundo</h1>
+    <p>{{ 2 + 2}}</p>
+  `
+});
+Recuerda que lo que vaya en la expresión debe ser Javascript válido
+NOTA: Vue por defecto identa el código e incluso llama al JSON.parse:
+const app = Vue.createApp({
+  template: `
+    <h1>Hola mundo</h1>
+    <p>{{ {a:1,b:2} }}</p>
+  `
+});
+Esto lo hace de manera nativa(los arrays los identa).Recuerda que solo permite ciertas expresiones(no soporta if o while o for,por ejemplo).
+IMPORTANTE: en Vue esto se llama declarative rendering(o representación declarativa).En React el naming es embebbed expression
+
+				VIDEO 32 ESTADO DEL COMPONENTE - DATA
+
+Recuerda hacer un recopilatorio de las principales carpetas del proyecto.
+Volviendo al video,podemos ver que en este método createApp tenemos más opciones:
+
+const app = Vue.createApp({
+  /*template: `
+    <h1>Hola mundo</h1>
+    <p>{{ {a:1,b:2} }}</p>
+  `,*/
+  methods:{},
+  watch:{},
+  setup(){},
+  data(){ <- el método data debe devolver un objeto con el estado de la app
+  return {
+      message: 'Hola mundo'
+    }
+  }
+});
+No sólo está template como propiedad ,sino methods,watch(son objetos) o setup o data(que son funciones) .Esto es conocido como el OptionsAPI,que esta basado en estas opciones.Sin embargo tmb está el Compositions API,que ya veremos.
+
+Bien,fijate que retornamos un objeto con la propiedad message.Por ello tengo acceso a esta propiedad(pero siempre que no devuelva ya una template,ojo):
+ <div id="myApp">
+    <h1>App Vue progresiva embebida</h1>
+    <p>{{message}}</p> <- fijate que template:`` está comentado
+  </div>
+
+NOTA: data crea un objeto reactivo,es decir,cualquier cambio sobre message lo va a ver Vue mediante su VirtualDOM y va a re-renderizar lo que sufrió cambios.
+La mayor parte de apps en Vue trabaja mediante esta propiedad.
+
+				VIDEO 33 INTRODUCCION A LOS EVENTOS
+
+De nuevo Fernando recalca que el objeto del return de data es reactivo,cada una de sus propiedades tmb lo es,y será recalculado el HTML si cambiará el VDOM(esto es de React).Veamoslo con un evento que cambie una prop.
+
+* Recuerda que ya hemos visto que methods era un objeto luego tendriamos algo asi(desde ahora no son propiedades sino opciones,en vue se llaman opciones):
+
+const app = Vue.createApp({
+  data(){
+    return{
+      quote:"I'm Batman",
+      author: "Bruce Wayne"
+    }
+  },
+  methods:{
+    changeQuote(){
+      console.log('changeQuote called')
+    }
+  },
+});
+
+* No hay ninguna obligación en que la opción 'methods' esté antes de 'data',ojo.Es en esta opción donde debo definir mis métodos.
+IMPORTANTE: al definir un método tengo acceso a él no sólo desde el HTML,otros métodos tmb podrían llamarlo.
+
+TIP: en Vue los métodos se llaman siempre igual,con 'v-on:<metodo>'.Asi pues como queremos llamar al click usaré:
+<button v-on:click="changeQuote">
+
+NOTA: realmente también podría ejecutar la función,ambas funcionan:
+<button v-on:click="changeQuote()">
+Esto es porque en JS cuando una funcion recibe un único argumento la puedo llamar por referencia(en este caso recibe el evento,puedo imprimirlo si quiero):
+
+methods: {
+  changeQuote(event){
+    console.log('method called',event)
+  }
+} 
+
+<button v-on:click="changeQuote">
+* Cuando hago click veo el evento(un PointerEvent),que ha pasado automáticamente,pero realmente no lo necesito en ese método.Interesting yet not determining,asinto
+
+IMPORTANTE: para poder cambiar algo del return de la opción data tendré que usar this para referenciar al objeto en el que ya estoy:
+
+data() {
+  return {
+    quote: "I'm Batman",
+    author: "Bruce Wayne"
+  }
+},
+methods: {
+   changeQuote(){
+    this.author = "Fernando Herrera"
+  }
+}
+TIP: con Vue.createApp estamos creando lo que se conoce como un componente en Vue.Mediante el this estamos haciendo referencia al propio componente en el que estamos. 
+
+NOTA: cuando haga click puedo ver perfectamente en las devTools que sólo cambia la etiqueta <blockquote>.De echo sólo cambiará una vez,ya que la segunda y sucesivas veces author tiene el mismo valor.Esto es exactamente igual que en React(concepto de reactividad)
+
+IMPORTANTE: de nuevo,si quiero referenciar otros métodos del componente tengo que usar el this para referenciar el contexto(no lo comentaré más):
+
+  methods:{
+    changeQuote(event){
+      console.log('change quote called',event);
+      this.author = 'Fernando Asintez'
+      this.capitalize()
+    },
+    capitalize(){
+      this.author = this.author.toUpperCase()
+    }
+  },
+
+			VIDEO 34 DIRECTIVA V-FOR
+
+Hemos avanzado bastante realmente.Sabemos como mantener el estado local de un componente,o como llamar a métodos y disparar eventos.Es turno de la primera directiva (estructural).
+Me traigo el arreglo del gist de FH y lo devuelvo en la data:
+
+const app = Vue.createApp({
+  data() {
+    return {
+      quotes: quotes,
+    };
+  },
+});
+* Recuerda que desde ahora quotes(que es el arreglo) es un arreglo reactivo.Si algo sucediera sobre un item del mismo Vue 'reaccionará' realizando los calculos definidos por el framework,etc.Ya profundizaremos más en esto.
+HINT: cuando tenemos una propiedad que apunta a una variable que tiene el mismo nombre que la propiedad podemos omitir la variable en JS.
+
+HINT: Cuando quiero llamar un metodo o propiedad de algo que es undefined se da un NullPointerException y peta la app cual prehistórica.Controlar los arreglos mediante directivas estructurales impidirá hacer un undefined.propiedad,ya que iterarán en base al número de elementos y se reajustarán a una nueva length del array por ser arrays reactivos(da igual el framework).
+
+Bien,volviendo al video,mediante la directiva estructural v-for(bi-for) puedo iterar una colección de valores(en realidad lo que hace es duplicar el elemento donde la declare basado en alguna condición)
+NOTA: hay varias maneras de llamar a la directiva v-for:
+
+    <ul>
+      <li v-for="quote in quotes">
+        {{ quote.author }}
+      </li>
+    </ul>
+
+IMPORTANTE: en Javascript en ciclo for in retorna el indice mientras que el for of retorna el objeto que se está iterando.Vue soporta ambos,asi que me da igual usar quote in quotes o quote of quotes(aunque se usa más el for in).
+
+			VIDEO 35 INDICES Y DESESTRUCTURACIÓN DENTRO DE UN V-FOR
+
+Bien,desesctructurar dentro del html en Vue es muy sencillo.Es exactamente igual que en JS,simplemente abro un objeto donde pueda desesctructurar:
+
+   <ul>
+      <li v-for="{quote,author} in quotes"> <-{quote,author} era quote luego OK
+        <span>{{quote}}</span>
+        <blockquote>-{{author}}</blockquote>
+      </li>
+    </ul>
+
+Bien,pero que pasa si necesito acceder al indice?.Para acceder tengo que usar esta sintaxis(v-for="(item,index) in collection".Obviamente puedo juntarla con la desesctructuración si item es un objeto.:
+
+ <ul>
+    <li v-for="({quote,author},index) in quotes">
+      <span>{{++index}} - {{quote}}</span>
+      <blockquote>{{author}}</blockquote>
+
+Perfecto(recuerda que el index empezará en 0).
+
+				VIDEO 36 DIRECTIVA V-MODEL
+
+En este video queremos crear un input que añada una nueva quote,y añadirla automáticamente al arreglo reactivo:
+
+  <div id="myVueCmp">
+    <h1>Batman most common quotes</h1>
+    <input type="text">
+    <hr>
+
+Bien,automáticamente se me presenta el problema de que Vue tiene que interaccionar con ese input,controlarlo.Para ello existe la directiva v-model:
+<input type="text" v-model="newQuote"> <- ojo,que newQuote debe ser parte del return de la data del componente:
+
+data(){
+  return {
+   quotes,
+   newQuote: 'Hola mundo'
+}
+NOTA:Fernando recomienda la extensión 'Split HTML Attributes' by Danny Connell.
+Fijate que Vue ya ha enlazado la prop con el value del input.
+IMPORTANTE: fijate que no es lo mismo llamar a la función que no llamarla si quiero acceder despues al evento:
+
+  <input
+      type="text"
+      v-model="newQuote"
+      v-on:keypress="addQuote" <- asi si mando el primer arg a la función
+      >
+* Si hubiera usado addQuote() no paso el argumento.Ya solo es filtrar por event.code y meterlo al arreglo reactivo
+
+  methods: {
+    addQuote(event) {
+      if (event.code === "Enter") {
+        this.quotes.unshift({
+          quote: this.newQuote,
+          author: "Me",
+        });
+      }
+    },
+
+Recuerda que unshift añade al principio del arreglo.
+
+			VIDEO 37 MODIFICADORES DE EVENTOS
+
+Realmente no necesitamos ni siquiera pasar el evento.Vue tiene muchos modificadores de eventos,lo cual es genial,si.De momento tengo aqui cierta doc:
+https://vuejs.org/guide/essentials/event-handling.html#event-modifiers
+
+NOTA: esto es de Angular,fijate que Angular tiene modificadores de eventos:
+
+ <input
+      type="text"
+      v-model="newQuote"
+      v-on:keypress.enter="addQuote" <- solo llamará si es keypress y el enter
+      >
+Ni siquiera necesitaba la condición.No sólo esto,si la app está en un móvil se encargará de si el enter es una pulsación,si es un Linux que sea un \n etc.El framework va a controlar todo.Increible.
+
+IMPORTANTE: modificador de evento es keypress.enter(es decir evento.modificador)
+    hay cientos en Vue y Angular como submit.prevent o keyup.scroll_down por ejemplo(previniendo el refresh en el submit o solo filtrando por el scroll down) 
+
+NOTA: a .enter o .tab se le llama un Key Alias.Vue(y Angular) provee aliases para las teclas más comunes:
+
+Key Aliases#
+Vue provides aliases for the most commonly used keys:
+.enter
+.tab
+.delete (captures both "Delete" and "Backspace" keys)
+.esc
+.space
+.up
+.down
+.left
+.right
+
+			VIDEO 38 DIRECTIVAS ESTRUCTURALES V-IF Y V-SHOW
+
+Doc: https://vuejs.org/guide/essentials/conditional.html#v-show.
+
+Bien,fijate que Fernando dejó el autor on purpose.Sería genial que el <blockquote>{{author}}</blockquote> lo pudieramos renderizar de manera condicional a si tiene valor esa propieda o no.
+Efectivamente Vue permite realizar esto de manera muy sencilla y de varias formas.
+Una muy común sería con la directiva v-if="condicion que resuelva a boolean"
+
+TIP: fijate que si fuerzo un false y voy al HTML puedo ver que Vue está anotando una referencia(<!--v-if-->),es decir que el framework pone marcas si lo ve necesario.
+
+Entonces con esto me valdría:
+   <blockquote v-if="author">-{{author}}</blockquote>
+
+IMPORTANTE: también puedo realizar lo mismo con la directiva v-show:
+  <blockquote v-show="author">-{{author}}</blockquote>
+
+Sin embargo,esta directiva si construye el HTML(la tag <blockquote> en este caso).Realmente lo que hace es agregar un display:none a la tag.
+Por todo esto el v-if es más rápido(ya que en cuanto computa a false ni construye nada ni evalua más cosas(lazy mode).
+IMPORTANTE: si bien el v-if es menos costoso inicialmente,pues no construye el componente,si que es más costoso si esa prop cambia a true(pues no habiamos renderizado nada).En este caso el v-show sería mejor,pues ya tendria creado el HTML.
+En resumen usar uno u otro depende de si se esperan muchos cambios en el boleano y debe tomarse en cuenta los futuros recalculos sobre esa propiedad.
+Usar uno u otro dependerá de todo esto
+
+MUY IMPORTANTE: si uso v-if junto a v-for el primero tiene preferencia.No se recomienda que vayan juntos y si lo fueran debo tener mucho cuidado pues el v-if va a computarse antes.Lo recomendado es usar el v-if sobre el padre:
+<ul v-if="condition"> <- no juntar el v-if en el <li> 
+ <li v-for="({name,age},index in persons)>
+
+Desde Vue 3 parece que si se puede juntar ambas directivas,pero en Vue2 puede dar problemas.
+
+				VIDEO 39 RESUMEN HASTA AHORA
+
+Puedo observar perfectamente como Vue es progresivo(diria que React y Angular tmb lo son) y como con una simple CDN hemos tenido acceso a Vue.
+Vimos como usar la representación declarativa(expresiones embebidas con {{}})
+Vimos como con la directiva v-model creamos un two-way data-binding ipso-facto(dejando en bragas a Angular) entre el HTML y el JS.Dará igual que lo cambie del lado del HTML o del JS,Vue va a mantener sincronizados sus valores.Increible
+Vimos como crear eventos con v-on:evento y agregarles modificadores con v-on:evento.modificador(pudiendo concatenar más).
+Vimos como disparar eventos(v-on:keypress.enter="addQuote").
+
+Vimos las directivas v-for(item in/of collection) y como sacar el index o desesctructurar en la template y las directivas v-if y v-show y cuando deberiamos usar una u otra.
+NOTA: v-for no sólo se usa para barrer arreglos,sino también objetos(en Angular también??)
+Recordemos que estamos en la OptionsAPI.
+Vimos también que la función data debe retornar un objeto reactivo.Tanto Vue como el desarrollador tiene control sobre ese objeto(ya veremos los ciclos de vida que atañen a ese objeto reactivo)
+
+TIP: si quiero pasar el evento es como en Angular con la nomenclatura $event
+
+				SECCION 04 VUE-CLI PRIMERA APP REAL
+
+Desde ahora usaremos la cli de vue(igual que angular-cli) para crear aplicaciones.De momento no usaremos la cli para crear el routing ni configurar VueX
+También veremos el paso de información mediante properties.
+Actualmente las devTools de Vue son muy poderosas,también las usaremos.
+Mediante estas devTools puedo interaccionar con los sujetos reactivos que controla el framework.
+
+En esta sección comenzaremos a trabajar con el Vue CLI (Command Line Interface), pero también explicaremos muchas cosas como:
+
+1- Estructura de directorios
+2- Guía de atajos de Vue.js
+3- Props
+4- Methods
+5- Propiedades computadas
+6- Componentes
+7- Validaciones
+8- Y más
+
+Esta sección es muy importante ya que empezaremos explicando desde las bases hasta ir creciendo poco a poco, eventualmente terminaremos creando soluciones mucho más complejas, pero todo parte desde el inicio.
+
+Fernando provee un PDF con lo esencial de Vue(muy interesante).
+
+			VIDEO 44 INICIO DE LA APP FUNDAMENTOS-APP
+
+Vamos a crear nuestra primera app con la vue-cli(comprobar con vue --version).
+NOTA: recuerda que el 4.5.12 es el versionamiento semántico(major,minor,fixing).
+El fixing solo corrige errores(último numero,el minor incluye funcionalidad nueva,pero que no haga un cambio brusco y el major incluye breaking changes).Esto es un estandar,aunque es susceptible al cambio por cada equipo de desarrollo.
+
+Bien,ahora si ejecutamos el siguiente comando:
+>vue create 03-fundamentos
+NOTA: vamos a seleccionar cada feature manualmente(desde el wizard que se abre).De momento no elegimos TS ni el linter,pero sí el Unit Testing.
+Despues eligo la v3 de Vue,la solución de testing que desee(Jest) y donde guardar los files de configuración(en archivos separados).
+De momento no guardo la configuración como favorita.
+Despues eligo el gestor de paquetes que quiera(yarn).Me cambio al folder y levanto la app(va al puerto 8080,ojo)
+Fijate que la app que se levanta tiene enlaces a lo que haya instalado y otros enlaces muy útiles a documentación existente.
+Fijate que está usando un Webpack Dev Server como servidor de desarrollo.
+NOTA: fijate que me ha creado un repositorio de Git,que no quiero, y el .gitignore.
+
+			VIDEO 45 ESTRUCTURA DE DIRECTORIOS CREADA POR UNA APP DE VUE
+
+Empezaremos por la carpeta node_modules.Como siempre,es de solo lectura y no es importante en cuanto a lo que hay.
+La carpeta public es para los estáticos(de momento el favicon y el index.html).
+La carpeta/directorio 'tests' agrupa los subfolders segun el tipo de testing(unit,e2e,...).En este curso vamos a ver tmb pruebas unitarias.Genial.
+Despues vienen los archivos de configuración para babel(babel.config.js),jest(jest.config.js) y la app(package.json).
+
+				VIDEO 46 DIRECTORIO SRC
+
+En cuanto al folder 'src' también es muy básico,con dos subfolders para los assets y los components.
+Fijate que en assets tenemos 'logo.png' pero en las devTools puedo ver que Vue le ha agregado un hash(logo.hash.png).Esto es para diferenciar imagenes,haciendolas únicas.Interesting
+IMPORTANTE: puedo ver desde ya que en un file .vue tengo 3 zonas diferenciadas con etiquetas <template>,<script> y <style>
+NOTA: en Vue2 una template sólo puede devolver un elemento,en Vue 3 ya no es necesario tener un div que sea un root element(entonces porque veo el error??)
+TIP: recuerda que el main.js está por encima de la app.Es el lugar ideal para renderizar la app condicionalmente(en base a permisos,por ejemplo) o suministrar algo de forma global a la app.Vue tmb hace genial esta parte.Recuerda que Vue es extremadamente rápido,eficiente y muy poderoso.
+
+				VIDEO 47 PRIMER COMPONENTE
+
+En Vue tengo que importar los componentes dentro de la etiqueta <script>.Puedo usar la @ referenciando a la carpeta 'src:
+
+* En el file App.vue
+<template>
+    <HelloWorld msg="Welcome to Your Vue.js App"/>
+</template>
+
+<script>
+import HelloWorld from './components/HelloWorld.vue' <- importo el cmp
+
+export default {
+  name: 'App',
+  components: {
+    HelloWorld
+  }
+}
+</script>
+
+NOTA: fijate que tmb tengo que exportar explicitamente este componente hacia afuera.En cuanto al naming del componente hemos usado PascalCase(HelloWorld) pero tmb se usa mucho kebab-case(hello-world).O sea minusculas y guiones medios(como en React).Ambas sintaxis son válidas.
+
+En cuanto a etiquetas self-closed o no también es totalmente válido usar una u otra:
+ <HelloWorld msg="Welcome to Your Vue.js App"/>
+ <HelloWorld msg="Welcome to Your Vue.js App"></HelloWorld>
+* Ambas son válidas en Vue
+
+Bien,realizamos la tarea de crear un componente e importarlo desde otro(acuerdate de usar el snippet 'vue' para crear las 3 zonas template,scripts y style).
+<template>
+  <h2>Counter</h2>
+  <p>10</p>
+</template>
+
+<script>
+export default {
+  name: "Counter",
+};
+</script>
+
+<style></style>
+
+NOTA: el name que le dé al exportarlo desde el propio componente es el que veré en las VueDevTools(realmente no tengo porqué darlo al exportarlo,ya que por defecto Vue le iba a dar el de Counter(el de la import).
+
+			VIDEO 48 ESTADO DEL COMPONENTE Y VUE DEV-TOOLS
+
+Es hora de crear un estado en el componente Counter.Dado que estamos con la OptionsAPI de nuevo tengo que usar la funcion data y exponer en el objeto del return cualquier cosa que quiero que sea reactiva/controlada  por Vue:
+
+<template>
+  <h2>Counter</h2>
+  <p>{{ counter }}</p>
+</template>
+
+<script>
+export default {
+  name: "Counter",
+  data() {
+    return {
+      counter: 5,
+    };
+  },
+};
+En cuanto a las devTools puedo ver que mantiene el estado aunque cambie otras partes del código.Esto parece útil(sobre todo en logins,etc) ya que no voy a tener que volver a meter el usuario de nuevo etc.
+
+			VIDEO 49 PROPIEDADES COMPUTADAS
+
+Vue tiene ciertas features geniales.Entre ellas está el poder usar propiedades computadas(las memoriza ??):
+<script>
+export default {
+  name: "Counter",
+  data() {
+    return {
+      counter: 5,
+    };
+  },
+  methods: {
+    getSquareValue() {
+      console.log('llamando a getSquareValue')
+      return this.counter * this.counter;
+    },
+  },
+  computed:{
+    squareCounter(){
+      console.log('llamando a squareCounter computado')
+      return this.counter * this.counter;
+    }
+  }
+};
+
+Si ahora llamo al método veré que se llama cada vez que se necesite:
+<template>
+  <h2>Counter</h2>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ getSquareValue() }}</p>
+</template>
+Pero puedo memorizar esto:
+<template>
+  <h2>Counter</h2>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+</template>
+Puedo ver que computed es como un useMemo(aunque squareCounter es una propiedad en Vue).Es decir es una propiedad computada que va a la caché
+NOTA: obviamente una computed property es como un snapshot.No tiene sentido que lo mute despues,tengo que estar seguro que lo puedo cachear y apenas cambiará,si no es mejor usar un method.Interesante
+
+				VIDEO 50 INCREMENTAR Y DECREMENTAR
+
+Creamos dos botones y les damos estilo(fijate que Vue puede trabajar con SASS o CSS pero parece que hay que configurarlo para SASS).Ya lo haremos.
+
+NOTA: de aqui en adelante sustituiremos 'v-on:' por @:
+ <div>
+    <button type="" @click="increase">+1</button>
+    <button type="" @click="decrease">-1</button>
+  </div>
+
+Fijate tmb que cuando se trata de asignar/reasignar no necesito el return:
+    increase(){
+       ++this.counter ; es lo mismo que return ++this.counter;
+    },
+    decrease(){
+       --this.counter ;
+    },
+
+			VIDEO 51 PROPERTIES - USANDO PROPS EN VUE
+
+En Vue podemos mandar argumentos desde el componente padre(desde el App.vue) al hijo(counter.vue).Esto es conocido como properties o props:
+
+<template>
+    <img alt="Vue logo" src="./assets/logo.png">
+    <Counter title="Entraron" />
+    <Counter title="Salieron" />
+</template>
+
+TIP: las propiedades de entrada usualmente se ponen justo debajo del export default en el hijo.Hay varias maneras de definirlas:
+1- Como un arreglo de strings:
+<template>
+ <h2>{{ title || "Counter" }}</h2>
+  ...
+
+<script>
+export default {
+  props: ["title"],
+  name: "Counter",
+
+IMPORTANTE: las props por defecto son solo readonly,no puedo reasignar this.title y no son requeridas.Podriamos crear una computed property que gestionara el undefined:
+  customTitle() {
+      return this.title || "Counter";
+    },
+Y ahora usarla en vez de this.title:
+  <h2>{{ customTitle}}</h2>
+
+Pero parece demasiada lógica,no?
+
+			VIDEO 52 DIFERENTES FORMAS DE DEFINIR LAS PROPS
+
+Hay muchas razones por las que debo tener mejor control de las properties y Vue realmente ofrece varias formas que son geniales.Muy asinto este framework -_-
+
+IMPORTANTE: si no declaro las props de entrada se le considera un atributo:
+ <Counter start="15" title="Entraron" /> <- aqui start es un attr pero title es una prop(lo puedo ver en las devTools)
+
+NOTA: recuerda que Javascript maneja un tipado dinámico(entiendo que puede cambiar el tipo en tiempo de ejecución),porlo que cambiará el "15" a 15:
+export default {
+  props: ["title","start"],
+  name: "Counter",
+  data() {
+    return {
+      counter: this.start,
+    };
+  },
+
+De todas formas,aunque esto funciona,es mejor tipar ya en las props cada prop de entrada.Para ello props ya no será un arreglo sino un objeto.Genial:
+  props: {
+    title: String,
+    start: Number,
+  },
+
+IMPORTANTE: esto realmente no corrige el warning de mandarle un String y querer recibirlo como un Number,aunque javascript al ser de tipado dinámico lo cambiara.Lo que hay que hacer es un binding en el envio de la propiedad(@Input).
+Recuerda que el binding se hace con v-bind:prop="" <- y lo que haya entre las comillas es Javascript:
+
+<Counter v-bind:start="15" title="Entraron" /> <- ojo que el 15 es Javascript y es un Number ya
+
+Pero ahora se nos presenta el caso de no pasar la prop start(recuerda que no son obligatorias por defecto).Javascript mandará un NaN y aunque no cae la aplicación,no funciona bien.Debo definir la obligatoriedad de una prop si asi lo fuera.
+
+export default {
+  props: {
+    title: String,
+    start: {
+      type:Number,
+      required:true <- ya no puede venir un cmp sin la prop de entrada
+    },
+  },
+
+Si no quisiera que lo manden siempre puedo poner un valor por defecto.Obviamente ésta es la forma a proceder con las props en Vue:
+
+    start: {
+      type: Number,
+      default:10
+    }
+Más adelante veré otros tipos como Objet o Array o incluso como usar funciones validarores para esa prop de entrada(firma validator:function(value:any):boolean:
+email:{
+  type: String,
+  required: true,
+  default: "none",
+  validator: function(value):boolean{ 'debe retornar true si el valor es válido}
+
+* Lo puedo ver en la pag 2 del PDF.
+
+				VIDEO 53 VALIDACION DE LAS PROPS
+
+Asumamos que el valor inicial de start sea mayor de 100.Podemos validarlo en la entrada de la prop,tal como acabamos de mencionar:
+<script>
+export default {
+  props: {
+    title: String,
+    start: {
+      type: Number,
+      required: true,
+      validator(value){
+        return value > 100;
+      }
+    }
+  },
+
+TIP:fijate que al tener que usar this no puedo usar arrow functions en Vue(al menos en esta parte).
+NOTA: fijate que la validación es sólo para el desarrollador,simplemente genera un warning,ni siquiera es un error
+
+Y por último,cuando una prop pueda ser de varios tipos va en un arreglo de tipos:
+username: [String,Number]
+
+Y el default de un objeto también cambia:
+propObj: {
+  type: Object,
+  default(){ return {message:'hello'} < -va en un default() ejecutado(factory function)
+
+			SECCION 05 INDECISION APP - CONTINUACION 
+
+Esta sección aunque es pequeña, contiene información importante sobre:
+
+1- Watch (son como Observables)
+2- Métodos
+3- Peticiones HTTP
+4- Ternarios
+5- Renderizado condicional
+6- Estilos globales
+7- Y más
+
+Al final, crearemos una aplicación pequeña pero muy útil para poder ir tomando confianza en Vue.juntos.
+
+
+
+
