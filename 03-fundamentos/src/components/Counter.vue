@@ -15,10 +15,10 @@ export default {
       type: Number,
       required: true,
       // default:10
-      validator(value){
+      validator(value) {
         return value > 100;
-      }
-    }
+      },
+    },
   },
   name: "Counter",
   data() {

@@ -697,6 +697,82 @@ Esta sección aunque es pequeña, contiene información importante sobre:
 
 Al final, crearemos una aplicación pequeña pero muy útil para poder ir tomando confianza en Vue.juntos.
 
+				VIDEO 59 INDECISION COMPONENT
 
+Creo un nuevo componente llamado Indecision.vue y lo importo y exporto en el App.vue.Fernando provee un Gist con los estilos.
+NOTA: fijate que el atributo scoped hace que ese CSS sólo sea aplicado para ese componente( <style scope></style>).Fijate que fácil es con Vue crear estilos locales a un componente
+
+			VIDEO 60 WATCH - OBSERVAR CAMBIOS EN UNA PROPIEDAD REACTIVA
+
+NOTA: fijate que el PDF es muy útil(además tengo un resumen de todo en la pag 1).Bien,centrandonos en el video y con lo anterior puedo ver que tengo otra propiedad llamada watch.Watch es un objeto(como methods) en el cual puedo poner Observables,es decir ,estar escuchando por cambios en flujos de datos.
+ 
+ <input type="text"  v-model="question" placeholder="Hazme una pregunta" />
+    <p>Recuerda terminar con un signo de interrogación (?)</p>
+    <div>
+      <h2>{{ this.question }}</h2>
+
+<script>
+export default {
+  data() {
+    return {
+      question: "",
+    };
+  }, 
+  watch:{
+    question(value,oldValue){ }
+  },
+
+IMPORTANTE: el método question(val,oldVal) del objeto watch se tiene que llamar igual que alguna propiedad existente(en este caso 'question'
+Este método question() se va a estar disparando cada vez que la propiedad cambie,ojo.Le llegará el valor anterior y el nuevo,pudiendo hacer comprobaciones,etc
+
+Por ahora lo único que queremos saber es cuando el usuario introduce un signo de interrogación(?).Dispararemos la petición al API en ese momento
+
+  watch:{
+    question(value,oldValue){ 
+       if(!value.includes('?')) return;
+        //realizar petición <- si llega aqui si lo incluye
+    }
+  },
+
+NOTA: en este caso tenia una prop,pero si question fuera un objeto y quiero escuchar sólo por el cambio sobre una propiedad tengo que pasarle la propiedad "deep" al watch.Genial que tenga esto ya contemplado el framework.
+
+			VIDEO 61 REALIZAR PETICION HTTP A UN BACKEND EN VUE
+
+No es buena práctica realizar la petición en el watcher.Lógicamente queremos abstraer la lógica y llamar a un método que haga la petición.
+
+  async getAnswer() {
+      this.answer = "Pensando...";
+      const { answer, image } = await fetch("https://yesno.wtf/api").then((r) =>
+        r.json());
+      this.answer = answer;
+      this.img= image
+    },
+  },
+
+IMPORTANTE: desde el primer momento que estoy usando fetch tengo que usar async y await.Fijate que la img es otra propiedad,pero la tengo que bindear(por ser atributo ??)
+
+<image v-bind:src"img" /> 
+TIP: puedo usar simplemente <img :src="img" /> donde img es la propiedad bindeada.Si es una propiedad es bindeo,si es el contenido de una etiqueta es con {{}}
+
+HINT: aún más interesante es no mostrar la img mientras sea null:
+<img v-show="img" :src="img" alt="bg" />
+
+NOTA: si que podia hacerlo sin el async,pero todo dentro de los then:
+getAnswer() {
+   ...
+   fetch('...')
+      .then(r => r.json())
+      .then(data => {
+          this.answer = data.answer 
+          this.img = data.image;
+      });
+}
+Si no me hacia el this.answer antes del fetch.Obviamente lo mejor es usar asincronia.Y de nuevo el v-bind es para atributos(lo cual incluye clases y estilos inline)
+
+			VIDEO 62 PULIENDO ALGUNOS DETALLES 
+
+Implementamos el map para la response y una bandera para mostrar solo la pregunta entera,etc.
+
+		SECCION 06 INTRODUCCION A PRUEBAS UNITARIAS Y DE INTEGRACION EN VUE
 
 
