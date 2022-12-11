@@ -775,4 +775,166 @@ Implementamos el map para la response y una bandera para mostrar solo la pregunt
 
 		SECCION 06 INTRODUCCION A PRUEBAS UNITARIAS Y DE INTEGRACION EN VUE
 
+Esta es nuestra primera sección de pruebas unitarias, el objetivo es que probemos todo el trabajo realizado anteriormente. Aquí tocaremos los siguientes temas:
+
+1- Jest
+2- Expect
+3- Spies (SpyOn)
+4- Ciclo de vida de las pruebas
+5- wrapper
+6- ShallowMount
+7- Mount
+8- Expect
+9- Snapshot
+10- Props
+11- Mocks
+12- Y mucho más
+
+Antes de que piensen en saltarse la sección, porque muchos consideras las pruebas algo innecesario, miren los videos iniciales, son muy importantes, y también recuerden que hay muchas personas que están cursando este curso únicamente por la sección de pruebas.
+
+      VIDEO 66 PRUEBAS UNITARIAS Y DE INTEGRACION
+
+Las pruebas unitarias están enfocadas en pequeñas funcionalidades de una aplicación mientras que las de integración se enfocan en cómo reaccionan varias piezas en conjunto.Usualmente estas piezas ya corrieron sobre una prueba unitaria.
+
+Fijate que las pruebas deberian ser fáciles de escribir,fáciles de leer,confiables,rápidas y principalmente unitarias.
+Recuerda que esto son las pruebas automáticas,las pruebas manuales las hacemos en el navegador
+Las pruebas automáticas deben ejecutarse siempre que se vaya a subir a producción una vez más.
+
+      VIDEO 67-68 MI PRIMERA PRUEBA + EXPECT
+
+Documentación: https://jestjs.io/
+Antes de nada fijate que la aplicacion ya viene configurada para ejecutar las pruebas.Si no fuera asi tengo que instalar las siguientes librerias(jest y @vue/vue3-jest) y configurar el script.Además,tendría que crear el file jest.config.js:
+
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "test:unit": "vue-cli-service test:unit"
+  },
+  "dependencies": {
+    "core-js": "^3.8.3",
+    "vue": "^3.2.13"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-unit-jest": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "@vue/test-utils": "^2.0.0-0",
+    "@vue/vue3-jest": "^27.0.0-alpha.1",
+    "babel-jest": "^27.0.6",
+    "jest": "^27.0.5"
+  },
+
+En el jest.config.js:
+  module.exports = {
+  preset: '@vue/cli-plugin-unit-jest'
+}
+
+Fijate que al ejecutar 'yarn test:unit' solo voy a ejecutar los test de dentro de la subcarpeta test/unit.
+
+IMPORTANTE: tras haber arreglado los settings iniciales de la prueba y haber aplicado una acción hay que hacer un assert.Es aquí donde entra jest y su expect(https://jestjs.io/docs/expect).
+Expect me da acceso a los "matchers",que me permiten validar diferentes cosas.De momento hacemos una simple prueba
+
+Intenta aprovechar este curso para mejorar el naming de las pruebas:
+// en el describe va únicamente el nombre del componente
+describe('Example Component', () => {
+  // en it debo usar como descripcion lo que quiero testear
+  it('debe de ser mayor a 10', () => {
+    // value es el sujeto de pruebas(qué es un sujeto de pruebas??)
+    // arreglar(Arrange)
+    let ouncesPerCan = 5; 
+
+    // shallow es poco profundo(sólo renderiza un nivel??) (shallow !== deep)
+    // actuar(Act)
+    ouncesPerCan = ouncesPerCan + 12;
+    
+    // afirmar(Assert) 
+    expect(ouncesPerCan).toBeGreaterThan(10)
+  })
+})
+Esta prueba realmente no tiene sentido,ya que no estoy testeando nada de mi aplicación
+
+VIDEO 69 TESTING A SNAPSHOT
+
+Una prueba bastante interesante suele ser testear el snapshot.Fijate que puedo crear copias profundas o no,como siempre.De momento un shallowMount nos vale para montar el componente en el DOM Virtual que hay que montar los componentes en un entorno de testing:
+
+import { shallowMount } from "@vue/test-utils";
+// en Vue la @ hace referencia al punto de entrada,es buena idea usarlo
+import Counter from "@/components/Counter";
+
+describe("Counter Component", () => {
+  test("should match with its snapshot", () => {
+    // una prueba interesante puede ser comprobar el snapshot ??
+
+    //  los componentes en un ambiente de testing se renderizan en un DOM virtual,de alguna manera tenemos que montarlos en ese DOM.Aqui es donde entran métodos como shallowMount o mount(éste monta todo el componente y sus componentes,luego el proceso es más pesado)
+    // obviamente de momento nos vale shallowMount
+    const wrapper = shallowMount(Counter);
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+});
+
+Fijate que estos métodos mount,shallow etc son para montar los componentes en un DOM virtual.Interesting.Fijate tmb que hemos usado wrapper.html()
+Para actualizar el snapshot simplemente pasar -u al comando (y si fallara usar -- -u para que vaya al subcomando y no a npm o yarn)
+  
+  VIDEO 70 VERIFICAR VALOR EN UNA ETIQUETA HTML
+
+De momento queremos ver el valor del <h2>.Para encontrar una tag con jest se usa find(findAll si quiero todos).Fijate que con find puedo buscar por etiquetas,por data-attributes,componentes,...
+Obviamente nos vale el find,pero recuerda que va a buscar el primero
+
+const wrapper = shallowMount(Counter); <- investigar como pasarle props
+const firstH2= wrapper.find('h2'); <- buscamos el primer h2
+* Ojo, find devuelve un DOMWrappper,para ver el contenido tengo que usar el método DOMWrapper.text()
+expect(firstH2.text()).toBe('Counter');
+En resumen,busco con find | findAll
+
+NOTA:fijate que podria usar menos pasos:
+const h2Content = wrapper.find('h2').text() <- saco el text ya
+
+TIP: dado que con find puedo buscar por etiquetas perfectamente puedo estar usando styled-components o buscar por un componente y pasarle por ejemplo find(Counter) find(Container).Perfectamente puedo usar un primer expect para ver si encuentra el DOMWrapper y asi saber que aplicarle el .text() no va a fallar:
+
+const wrapper = shallowMount(Counter);
+expect(wrapper.find('mytag').exists()).toBeTruthy(); <- si pasa se que puedo usar .text()
+NOTA:fijate que el exists() es bastante interesante
+
+VIDEO 71 FIND VS FINDALL
+
+Obviamente findAll devuelve un array de DomWrappers,luego puedo buscar el segundo parrafo:
+  const wrapper = shallowMount(Counter);
+  const pTags = wrapper.findAll('p'); 
+  // ojo que .text() devuelve el contenido como string(aunque fuera un Number en el component)
+  expect(pTags[1].text()).toBe("10");
+
+NOTA: esta prueba está mal configurada,ya que buscar por indices de posiciones es un error muy grande.Un simple cambio de orden de los parrafos daría al traste con el test.Realmente no es buena idea usar findAll salvo en contadas ocasiones.Asi pues,sería mejor agregar un identificador único(lo mejor es usar un data-testid) y olvidarnos del indice:
+  <p data-testid="counter">{{ counter }} </p>
+TIP: al conjunto de atributos html que empiecen por data-xxx se le llama data-attributes.Fijate además que es html y por ello van en minusculas y guiones,no estoy en el framework
+
+Ahora si,usamos un find y nos olvidamos de la posicion
+// fijate que sin usar plugins con jest puedo buscar usando wrapper.find('[data-testid="value"]').Puedo buscar por cualquier data-attribute,ojo
+const PByDataAttribute = wrapper.find('[data-testid="counter"]') <- ojo que va entre corchetes
+expect(PByDataAttribute.text()).toBe("100")
+
+IMPORTANTE: recuerda que los atributos data-testid los puedo quitar con un plugin de babel,obviamente, llamado 'babel-plugin-jsx-remove-data-test-id':
+
+npm i babel-plugin-jsx-remove-data-test-id
+
+Luego en el babel.config.js agregarlo  quedaría así:
+
+module.exports = {
+  presets: ["@vue/cli-plugin-babel/preset"], <- cambiar el preset por el que necesite
+  env: {
+    production: {
+      plugins: [
+        [
+          "babel-plugin-jsx-remove-data-test-id",
+          {
+            attributes: ["data-test-id", 'data-testid']
+          }
+        ]
+      ]
+    }
+  }
+};
+
+IMPORTANTE: investigar si realizar snapshots nos ayuda a reducir pruebas estructurales
+
+    VIDEO 72 SIMULAR EVENTOS
 

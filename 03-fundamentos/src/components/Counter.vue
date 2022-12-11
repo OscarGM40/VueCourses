@@ -1,6 +1,7 @@
 <template>
   <h2>{{ customTitle }}</h2>
   <p>{{ counter }} <sup>2</sup> = {{ squareCounter }}</p>
+  <p data-testid="counter">{{ counter }} </p>
   <div>
     <button type="" @click="increase">+1</button>
     <button type="" @click="decrease">-1</button>
@@ -13,8 +14,8 @@ export default {
     title: String,
     start: {
       type: Number,
-      required: true,
-      // default:10
+      default:10,
+      // required: true,
       validator(value) {
         return value > 100;
       },
@@ -40,7 +41,6 @@ export default {
   },
   computed: {
     squareCounter() {
-      console.log("llamando a squareCounter computado");
       return this.counter * this.counter;
     },
     customTitle() {
