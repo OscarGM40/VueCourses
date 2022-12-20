@@ -1,0 +1,131 @@
+SECCION 07 POKEMON GAME
+
+En esta sección haremos un juego que nos permita aprender mucho sobre Vue y la comunicación entre componentes. Puntualmente veremos:
+
+1- Mount
+2- Axios en Vue.js
+3- Emitir eventos
+4- Escuchar eventos personalizados
+5- Funciones para generar información aleatoria
+6- Lógica para resolver la necesidad de la aplicación
+
+VIDEO 87 INICIO DEL PROYECTO
+
+Creamos una nueva aplicación con:
+>vue create 04-pokemon-game
+Selecciono añadir features manualmente y agrego el unit testing(sino lo agrego tendria que configurar los archivos yo,instalar las libs,etc)
+Recuerda no guardar como configuración modelo,ya que es muy simple
+
+Se recomienda esta estructura de directorios para proyectos un poco más grandes que éste.Eventualmente la implementaremos:
+src/
++-- modules/
+|   +-- moduleA/
+|       +-- components/
+|       +-- services/
+|       +-- helpers/
+|       +-- router/
+|       +-- store/
+|   +-- moduleB/
+|   +-- moduleC/
+
+En resumen,no se recomienda usar la estructura por default,sino crear la carpeta src/modules lo primero de todo y despues crear submodulos en base a lógica de negocio,etc
+NOTA: puedo omitir la extensión al importar componentes en Vue:
+import PokemonPage from "./pages/PokemonPage";
+
+Recuerda también que cuando un componente consuma otros componentes los tiene que importar y exportar también(aparte que cada uno de esos componentes consumidos tiene que exportarse con un name):
+<script>
+import PokemonPicture from "./../components/PokemonPicture";
+import PokemonOptions from "./../components/PokemonOptions";
+
+export default {
+  name: "PokemonPage",
+  components:{
+    PokemonPicture,PokemonOptions
+  }
+};
+</script>
+
+    VIDEO 89 ESTILOS Y MAQUETACIÓN
+
+Fijate como puedo quitar el brillo a una imagen(dejando la silueta en negro) mediante un filter y el método brightness.Recuerda que debo agregar scoped a cad etiqueta de estilos que quiera que sean locales al componente:
+
+<style scoped>
+.hidden-pokemon {
+  filter: brightness(0);
+}
+</style>
+
+Como API usaremos https://pokeapi.co.Fijate que los snippets empiezan por vbase ahora
+
+  VIDEO 90 FUNCIONALIDAD DEL POKEMON PICTURE
+
+Vamos a crear una prop de tipo Number.Fijate que para que sea asi tengo que usar v-bind(el shortcut es :):
+ 
+ <PokemonPicture :pokemonId="4" /> === <PokemonPicture v-bind:pokemonId="4" />
+
+ Y para consumir una computed property lo mismo,hay que hacer un v-bind con la misma sintaxis(fijate que hacer un v-bind hace que lo que haya como valor sea interpretado como Javascript y no un string):
+  <img
+      :src="imgSrc" <- imgSrc es una propiedad computada
+      class="hidden-pokemon"
+      alt="pokemon"
+    />
+
+ La computed se hace asi:
+  computed:{
+    imgSrc(){
+      return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/${this.pokemonId}.svg`;
+    }
+  } 
+
+    VIDEO 91 LOGICA PARA CAMBIAR DE IMAGENES
+
+Eventualmente el PokemonOptions debería recibir un arreglo de 4 pokemons de forma aleatoria.De momento creamos un arreglo de 650 posiciones asi:
+
+const pokemons = Array.from( Array(650)); 
+* Fijate que pokemons ahora mismo es un arreglo de 650 undefined
+return pokemons.map( (_,index) => index + 1) <- meto en cada posición su index+1,obteniendo un arreglo de numeros
+
+Ahora los devolvemos al azar.Fijate que fácil va a ser con sort,pues los va a ordenar si son mayores a 0 o menores:
+const mixedPokemons = pokemons.sort( () => Math.random() - 0.5) <- esto va a soltar positivos y negativos aleatoriamente,reordenandolos
+
+VIDEO 92 OBTENER NOMBRES DE LOS POKEMONS & REALIZAR PETICION
+
+La idea es llamar al endpoint pokemon/:id,solo por motivos didacticos(ya que era mejor haber usado una con los 650,que incluso es más ligera que el detalle de un pokemon).Empezamos pues instalando axios:
+>yarn add axios
+
+Creamos nuestra instancia en la carpeta 'api'
+import axios from "axios"
+
+const pokemonApi = axios.create({baseUrl:"xxx"})
+
+Y simplemente creamos un Promise.all:
+const getPokemonNames = async ([a, b, c, d] = []) => {
+  const [pk1, pk2, pk3, pk4] = await Promise.all([
+    await pokemonApi.get(`/${a}`), //  ya mete el await dentro el Promise.all
+    pokemonApi.get(`/${b}`), // no es necesario el await interno,asinto
+    pokemonApi.get(`/${c}`), //
+    pokemonApi.get(`/${d}`), //
+  ]);
+
+  return [
+    {
+      name: pk1.data.name,
+      id: pk1.data.id,
+    },
+    {
+      name: pk2.data.name,
+      id: pk2.data.id,
+    },
+    {
+      name: pk3.data.name,
+      id: pk3.data.id,
+    },
+    {
+      name: pk4.data.name,
+      id: pk4.data.id,
+    },
+  ];
+};
+
+IMPORTANTE: fijate que el Promise.all no necesita del await por cada promesa interna,con el suyo ya vale(aunque es indiferente ponerlo o no).Genial,ya tenemos los pokemons
+Recuerda usar console.table para objetos(sobre todo en el curro)

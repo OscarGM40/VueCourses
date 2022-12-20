@@ -35,21 +35,29 @@ export default {
     },
     async getAnswer() {
       const responses = {
-        yes:"Si!",
-        no:"No!",
-        maybe: "Quizas!"
+        yes: "Si!",
+        no: "No!",
+        maybe: "Quizas!",
+      };
+      try {
+        this.answer = "Pensando...";
+        const { answer, image } = await fetch("https://yesno.wtf/api").then((r) =>
+          r.json()
+        );
+        this.answer = responses[answer];
+        this.img = image;
+      } catch (e) {
+        console.log("Error in the request: ", e);
+        this.answer = "No se pudo cargar del API";
+        this.img = undefined;
       }
-      this.answer = "Pensando...";
-      const { answer, image } = await fetch("https://yesno.wtf/api").then((r) =>
-        r.json()
-      );
-      this.answer = responses[answer];
-      this.img = image;
     },
   },
+  // recuerda que con watch creaba una especie de Observable
   watch: {
     question(value, oldValue) {
       this.isValidQuestion = false;
+      console.log({ value });
       if (!value.includes("?")) return;
 
       this.isValidQuestion = true;

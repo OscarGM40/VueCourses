@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Indecision Component Debe de hacer match contra el snapshot 1`] = `
+<h1>Indecision</h1>
+<!-- <img v-bind:src="img" alt="bg" /> -->
+<!--v-if-->
+<div class="bg-dark"></div>
+<div class="indecision-container">
+  <!--  FORMA CON EVENTO KEYPRESS @keypress.enter="handleInput" --><input type="text" id="question" placeholder="Hazme una pregunta">
+  <p>Recuerda terminar con un signo de interrogación (?)</p>
+  <!--v-if-->
+</div>
+`;

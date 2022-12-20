@@ -938,3 +938,267 @@ IMPORTANTE: investigar si realizar snapshots nos ayuda a reducir pruebas estruct
 
     VIDEO 72 SIMULAR EVENTOS
 
+Para simular eventos en Vue tengo el método element.trigger('event-type'):
+  increaseButton.trigger('click')
+
+IMPORTANTE: al probar el cambio al hacer click el procedimiento no es totalmente síncrono.trigger:
+
+Ojo,es en este punto en Vue(investigar más)
+    await increaseButton.trigger("click");
+    expect(counter.text()).toBe("11");
+
+Fijate esta opcion que interesante:
+ const [increment, decrement] = wrapper.findAll('button')
+
+ VIDEO 73 TIPS PARA OPTIMIZAR CODIGO
+
+ En este punto tenemos dos refactor posibles,al menos:
+
+* Sacar la llamada inicial al ciclo de vida
+  let wrapper;
+  beforeEach( () => {
+    wrapper = shallowMount(Counter);
+    jest.clearAllMocks();
+  })
+
+* Usar una única llamada a findAll para sacar los dos botones mediante destructuring de arreglos.Interesante:
+  const [increaseButton,decreaseButton] = wrapper.findAll("button");
+
+    VIDEO 74 LEER PROPS DESDE UN AMBIENTE DE TESTING
+
+Primero es muy importante entender que lo que estoy montando en la prueba es el componente counter(del counter.vue) y no su llamada en el app.vue o cualquier otra llamada dentro de la app.Digamos que estoy llamando a la definición del componente(y por ello el title siempre será undefined hasta que le pase uno en el test).
+En resumen,el componente debe ser proveido de valores en el test.De momento solo estamos viendo como leer las props,no como mandarlas en testing
+
+// ver las props del componente en Vue(wrapper.props())
+console.log(wrapper.props());
+
+// acceder a una prop en concreto
+console.log(wrapper.props("start"));
+
+// otra forma de acceder a una o varias props
+const { start } = wrapper.props();
+console.log(typeof start) <- ojo que es un Number y .text() me da un String
+
+const value = wrapper.find('[data-testid="counter"');
+expect(value.text()).toBe(start.toString()) <-hay que castear uno de los dos
+
+      VIDEO 75 ENVIAR PROPS Y EVALUARLAS
+
+Para establecer props también hay varias formas.Una es como segundo argumento del método shallowMount:
+
+  test("Debe de establecer la prop title correctamente", () => {
+    const wrapper = shallowMount(Counter, {
+      props: {
+        title: "Hello world",
+      },
+    });
+    expect(wrapper.find("h2").text()).toBe("Hello world"); <- recuerda no usar literales hardcodeados
+  });
+
+Otra es con await wrapper.setProps pero ojo que es asincrona este setProps,pues el primer render viene con el valor por default:
+
+  test('prop "title" debe mostrar valor indicado', async () => {
+    const title = "Something";
+    await wrapper.setProps({ title });
+
+    const value = wrapper.find("h2").text();
+    expect(value).toBe(title);
+  });
+
+  NOTA: recuerda que si mando un String a una prop que espera un Number Vue solo me da un Warning
+
+  VIDEO 76 PRUEBAS INICIALES EN EL INDECISION COMPONENT
+
+De momento simplemente creamos la prueba para el snapshot:
+
+import { shallowMount } from "@vue/test-utils";
+import Indecision from "@/components/Indecision";
+
+describe("Indecision Component", () => {
+  let wrapper;
+  beforeEach(() => {
+    wrapper = shallowMount(Indecision);
+    jest.clearAllMocks();
+  });
+
+  test("Debe de hacer match contra el snapshot", () => {
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+});
+
+      VIDEO 78 SPY Y MOCKS EN TESTING
+
+Primero que nada recuerda que lo que se defina en el componente es lo que ejecutaré en el testing.Si meto un console.log aqui:
+
+watch: {
+    question(value, oldValue) {
+      this.isValidQuestion = false;
+      console.log({ value });
+dado que ese watch estaba en el input va a imprimir el valor de value el archivo de pruebas.Perfecto
+
+En cuanto a la prueba,fijate que es muy fácil escribir en el input con Vue(o es por Jest ??):
+
+test('no debe de disparar la petición si no escribo en el input el simbolo de interrogacion', async() => { 
+    const input = wrapper.find('input'); //solo hay uno,asinto
+    await input.setValue('Hola mundo');
+
+  })
+
+Y de nuevo fijate que es muy claro donde va el await y porqué lo lleva.
+
+Bien,vamos a crear un espia sobre el console.log del watch(en el beforeEach además):
+  beforeEach(() => {
+    wrapper = shallowMount(Indecision);
+    jest.clearAllMocks();
+    clgSpy = jest.spyOn(console,'log')
+  });
+
+Con el espia echo podriamos esperar que se haya llamado una vez:
+    await input.setValue("Hola mundo");
+    expect(clgSpy).toHaveBeenCalledTimes(1);
+
+    VIDEO 79 SPY CON LA INSTANCIA DE VUE
+
+Realmente no hemos comprobado que el getAnswer no haya sido llamado.Para hacer esto vamos a usar un espia sobre el método.
+IMPORTANTE: fijate que el meodo esta declarado en el componente,luego es el propio componente el que tengo que espiar.
+Con esto claro pudiera parecer que esto funcionaría:
+ const getAnswerSpy = jest.spyOn(wrapper,'getAnswer')
+
+ Pero lo que devuelve shallowMount(Indecision) realmente es un objeto inmenso que forma ese componente,pero wrapper no es una función,sino un objeto inmenso.Simplemente tengo que acceder a otra propiedad llamada vm del wrapper
+
+  const getAnswerSpy = jest.spyOn(wrapper.vm,'getAnswer')
+
+  NOTA: vm es la instancia de Vue(luego el wrapper está aún por encima!)
+  https://v1.test-utils.vuejs.org/api/wrapper/
+
+Property vm:
+Component (read-only): This is the Vue instance. You can access all the instance methods and properties of a vm with wrapper.vm. This only exists on Vue component wrapper or HTMLElement binding Vue component wrapper.
+
+Entonces sabiendo que ya estamos espiando bien al método del componente,simplemente hacemos una aserción de que no se esta llamando aún.Perfectua
+
+expect(getAnswerSpy).not.toHaveBeenCalled();
+
+MUY IMPORTANTE: si voy a la docu puedo ver que puedo acceder mediante ese wrapper no solo a la instancia(mediante vm) sino a las clases (mediante wrapper.classes()),atributos,emisiones(mediante emitted()),exists(),find(),html(),props(),etc
+
+  VIDEO 80 TAREA. ESPERAR QUE EL GET ANSWER SEA LLAMADO
+
+Importante: los tests se ejecutan sobre Node,y no sobre un navegador.Voy a tener problemas con funciones como window.alert o window.fetch.Fijate además que la API fetch no existe en Node,y nuestro getAnswer esta haciendo una petición con fetch.Nuestro espia va a fallar por esto.
+
+En este punto tenemos que mockear la función fetch,que se encuentra dentro del objeto window,pero estamos en Node y sólo vemos al objeto global.El test está buscando la api Fetch en un entorno Node y obviamente no lo va a encontrar
+
+TIP:realmente solo tengo que mockear esa funcion(que recuerda que es global.fetch),asi que en cualquier linea escribo esto:
+global.fetch = jest.fn()
+
+Claro que ahora falla el res.json().Obviamente aún falta mockear al go más
+
+      VIDEO 81 TESTEAR LA API FETCH - PROMESAS
+
+Podemos ver el error 'cannot read property then of undefined'.Lo que sucede es que ese mock global.fetch = jest.fn() devuelve un undefined, y realmente nos falta ese then e inclusive despues faltará el json().
+
+PASO UNO: en vez de llamar a jest.fn() que sin args devuelve un undefined realmente necesitamos que se devuelva una promesa luego tiene que ser:
+global.fetch = jest.fn( () => Promise.resolve() )
+
+PASO DOS: sin embargo ahora veré que no puede leer el json() de undefined.Esto es porque ahora Promise.resolve() devuelve un undefined y undefined.json() da un Null Pointer Exception.
+Asi pues no puedo devolver una promesa vacia,sino que tiene que devolver minimo el metodo json:
+global.fetch = jest.fn( () => Promise.resolve({
+  json: () => true
+}))
+*Sin embargo,éste método tmb es una promesa,luego no nos vale que devuelva cualquier cosa,tiene que devolver otra promesa:
+global.fetch = jest.fn( () => Promise.resolve({
+  json: () => Promise.resolve({
+    answer: "yes",
+    forced: false,
+    image : "https://image.com"
+  })
+}))
+
+Ahora si,con la llamada fakeada perfectamente vamos a llamar al método,esta vez fisicamente(desde wrapper.vm):
+
+ test("pruebas en el metodo getAnswer- Peticion exitosa", async () => {
+    // llamamos fisicamente al método(fijate que es asincrono)
+    await wrapper.vm.getAnswer();
+    console.log(wrapper.vm.img)
+    console.log(wrapper.vm.answer)
+  });
+
+  Desde aqui ya solo es hacer aserciones que testeen algo,por ejemplo que el <img v-show="img" :src="img" exista:
+
+  expect(wrapper.find("img").exists()).toBe(true);
+
+  O que la propiedad img tenga el valor correcto:
+    expect(wrapper.vm.img).toBe("https://image.com");
+  Fijate como hemos accedido a una propiedad con wrapper.vm.property o a un método con wrapper.vm.method(),desde luego esto es muy interesante.¿Como se puede hacer esto en React?
+  Fijate también que estoy testeando que el componente hace lo que tiene que hacer,muy importante:
+    expect(wrapper.vm.answer).toBe("Si!");
+  Desde luego necesito aprender a hacer esto en React.
+
+
+      VIDEO 82 SIMULAR UN FALLO EN EL API
+
+Fijate que lo vamos simular en el primer punto de entrada(no va a llegar al .then):
+  try {
+    this.answer = "Pensando...";
+    const { answer, image } = await fetch("https://yesno.wtf/api")
+    .then((r) => r.json());
+    this.answer = responses[answer];
+    this.img = image;
+  }catch(e){
+    console.log("Error in the request: ",e)
+    this.answer = 'No se pudo cargar del API';
+    this.img= null
+  }
+
+Y fijate también que ya he creado una implementación(un mock) de global.fetch,no tengo que volver a llamar a jest.fn() si no cambiar el retorno(es como un let,la primera vez lo defini,las siguientes veces es un update).Recuerda,la primera vez es jest.fn() ,despues es mockInstance.mockImplementation.En resumen:
+
+global.fetch.mockImplementationOnce( () => Promise.reject('API is down')) <- no necesito más,va a entrar por el catch,pero es que además no estoy jodiendo la primera implementación exitosa,solo updateandola
+Ahora ya podria mirar que wrapper.vm.img sea null o wrapper.vm.answer sea 'No se pudo cargar del API',etc.
+
+Fijate por último que v-if y v-show son diferentes para el testing y que en vez de await wrapper.vm.method puedo usar el espia.Ambos van a llamar al método con la implementación real.
+Dos videos fundamentales(81 y 82) que debo masterizar.
+TIP: para testear axios puedo hacer esto:
+import axios from 'axios';
+
+jest.mock('axios'); <- realmente no necesito más,ya que voy a crear un mock en cada test:
+
+test('test con la impl del get', async () => {
+  axios.get.mockImplementationOnce( () => Promise.resolve({
+    data: {
+        hits: [
+          {
+            objectID: '1',
+            title: 'a',
+          },
+          {
+            objectID: '2',
+            title: 'b',
+          },
+        ],
+      },
+    };
+  }))
+})
+
+Recuerda que axios siempre me va a devolver un objeto con la propiedad data(y otras más) con la data
+Fijate como con jest.mock('axios') mockeo el módulo entero
+
+Recuerda que jest.mock no lo almaceno y es para modulos/files(me da igual si mockear el export default de ese file o el export named o cualquier combinación):
+
+import defaultExport,{bar,foo} from '../module';
+
+jest.mock('../module', () => {
+  const originalModule = jest.requireActual('../module');
+  return {
+    __esModule:true,
+    ...originalModule, <- me traigo todo
+    default: jest.fn( () => 'mocked default',
+    foo: 'mocked foo' <- esto sería una propiedad,puedo hacer que sea un método,realmente puedo hacer lo que quiera
+  }
+})
+
+const defaultExportCall = defaultExport(); <- siempre que sea un method,claro
+expect(defaultExportCall).toBe('mocked default')
+expect(defaultExportCall).toHaveBeenCalled()
+expect(foo).toBe('mocked foo')
+Muy interesante todo esto,willy
+
+
