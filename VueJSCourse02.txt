@@ -129,3 +129,284 @@ const getPokemonNames = async ([a, b, c, d] = []) => {
 
 IMPORTANTE: fijate que el Promise.all no necesita del await por cada promesa interna,con el suyo ya vale(aunque es indiferente ponerlo o no).Genial,ya tenemos los pokemons
 Recuerda usar console.table para objetos(sobre todo en el curro)
+
+VIDEO 93 MOSTRAR LAS OPCIONES POSIBLES- CICLO DE VIDA INICIAL
+
+Vue ya viene con unos métodos predefinidos que son llamados en determinados momentos(al crearse un componente,al destruirse,al cambiar,etc...).Los tengo en el PDF,ojo.
+Si miro el PDF puedo ver que me valdría el created o el mounted.Realmente no tiene complejidad,pero ojo,son métodos(igual que data) y no propiedades como methods o computed:
+
+ data(){
+    return{
+      pokemonArr: []
+    }
+  },
+  methods:{ <- propiedad
+    async mixPokemonArray(){
+      try{
+        this.pokemonArr = await getPokemonOptions();
+      }catch(e){
+        console.log("Error in the request: ",e)
+        this.pokemonArr=[]
+      }
+    }
+  },
+  mounted(){ <- lifecycle
+    this.mixPokemonArray()
+  }
+
+  IMPORTANTE: fijate que no tengo que poner await this.mixPokemonArray().Los ciclos de vida son asincronos por naturaleza,supongo
+  Ya solo es recibirlo por props en el otro Cmp e iterar
+    <ul>
+     <li v-for="pokemon in pokemons">
+     {{pokemon.name}}
+     </li>
+    </ul>
+
+    VIDEO 94 SELECCIONAR UN POKEMON ALEATORIAMENTE
+
+  Creamos una nueva propiedad en el padre para el pokemon que queremos acertar:
+  data(){
+    return {
+      ...
+      pokemon:null
+    }
+  }
+    const rndInt = Math.floor(Math.random() * 4);
+    // agarro un pokemon de forma aleatoria
+    this.pokemon = this.pokemonArr[rndInt];
+
+Sin embargo,fijate que por unos momentos ese pokemon es null y el componente hijo trata de acceder a null.id antes de tener el pokemon,pues es una petición.Hay que corregir esto.Una sería usar un v-if en el padre para que no renderize al hijo:
+
+ <div v-if="pokemon">
+    <PokemonPicture :pokemonId="pokemon.id" :showPokemon="true" />
+    <PokemonOptions :pokemons="pokemonArr" />
+  </div>    
+
+Claro que esto nos hace ver por unos momentos una pantalla en blanco.Aqui entramos en el terreno de los loadings,pero Vue proporciona una directiva muy interesante llamada v-else que va en conjunción con un v-if,lógicamente:
+<h1 v-if="!pokemon">Espere por favor...</h1>
+<div v-else>
+ <h1>¿Quién es este pokémon?</h1>
+    <PokemonPicture :pokemonId="pokemon.id" :showPokemon="true" />
+    <PokemonOptions :pokemons="pokemonArr" />
+</div>
+
+Esta directiva no necesita de ninguna condición,ya que va con su v-if correspondiente,entrando cuando la condición del mismo no se cumpla.
+De esta forma me ahorro escribir dos v-if,bien por Vue aqui.
+
+
+VIDEO 95 $emit - EMITIR EVENTOS HACIA ARRIBA
+
+En este punto nos falta que el onClick sobre una opcion transmita esa opcion hacia el padre,indicando que debe de cambiar de silueta.Vue hace esto de una forma muy sencilla también.
+
+NOTA:hay varias propiedades y/o métodos en el objeto global Vue que son accedidas mediante el símbolo de dollar.Uno de ellos es $emit()
+NOTA:si bien en otros lenguajes ese $ puede ser un puntero a memoria en Javascript es un simple caracter adicional que no significa nada,solo da contexto para indicar al desarrollador que es algo propio de Vue,indicandole que no debe tocar nada.
+
+Si por ejemplo solo fuera emit el dev podria pensar que es algo de otra persona y borrarlo o modificarlo.
+
+IMPORTANTE: para acceder a este $emit desde un método en el <script></script> tengo que usar this.$emit().En realidad lo puedo usar en la template con this.$emit,pero no hace falta en la template(si en el script)
+
+Ahora si,$emit(arg1,arg2?) son dos argumentos,el primero es obligatorio y es el nombre del evento que quiero emitir,luego:
+
+@click="$emit('selectPokemon',pokemon.id)
+
+IMPORTANTE: lo que he hecho es crear un evento llamado 'selectPokemon' en el hijo,para que lo consuma el padre es igual,es con @event-name.Recuerda también que Vue me deja definir un evento en el hijo en camelCase y consumirlo en kebab-case:
+
+  <PokemonOptions :pokemons="pokemonArr" @select-pokemon="checkAnswer($event)" /> <- si creo un custom event que se llama selectPokemon | select-pokemon tengo que llamarlo con @select-pokemon
+
+  El método de momento no hace nada
+  checkAnswer(event){
+      console.log('Pokemon Options llamado')
+    }
+
+NOTA:el segundo argumento de $emit es opcional,porque no siempre necesitaré mandar data desde el hijo,pero en este caso si necesito mandar el pokemon.id
+  @click="$emit('selectPokemon',pokemon.id)"> <- 2º argumento la data a enviar
+
+
+IMPORTANTE: $event es otra palabra reservada,y simboliza todo el evento(en este caso $event es el id,pero en inputs de formulario tendré que usar $event.target.value para mandar solo el valor)
+
+TIP: realizar esto @select-pokemon="checkAnswer($event)" y esto @select-pokemon="checkAnswer" es exactamente lo mismo,ya que el primer argumento va a pasar automáticamente entre funciones en Javascript.
+
+NOTA: dentro del template,como ya es parte del componente,el THIS está implicito(aunque podría ponerlo)
+
+IMPORTANTE: Vue no solo hace la traduccion de camelCase a kebab-case para eventos,también lo hacer para las props(siguiendo asi las buenas prácticas de que en el HTML deberia usarse kebab-case):
+Perfectamente puedo cambiar esto:
+<PokemonPicture :pokemonId="pokemon.id" :showPokemon="showPokemon" />
+por esto:
+<PokemonPicture :pokemon-id="pokemon.id" :show-pokemon="showPokemon" />
+y rescatarlas asi en ese PokemonPicture:
+ props:{
+    pokemonId:{
+      type: Number,
+      required:true
+    },
+    showPokemon:{
+      type: Boolean,
+      required:true,
+      default:false
+    }
+  },
+
+No solo esto,sino que incluso en el naming del componente hace la traducción:
+<pokemon-picture :pokemon-id="pokemon.id" :show-pokemon="showPokemon" />
+Aunque dejarlos en PascalCase da mucho contexto al desarrollador de que es un custom component
+
+      VIDEO 96 RESULTADO Y REINICIO DEL JUEGO
+
+Creamos un par de propiedades más,para mostrar un mensaje,etc:
+  checkAnswer(selectedId) {
+      this.showPokemon = true;
+      this.showAnser = true;
+      this.message =
+        selectedId === this.pokemon.id
+          ? `Correcto, es ${this.pokemon.name}! `
+          : `Oops, era ${this.pokemon.name} ...`;
+    },
+
+NOTA: puedo usar una etiqueta <template></template> igual que tengo en React los fragments o en Angular los <ng-template></ng-template> Ninguna de estas tags va a computar en el HTML,son simples agrupadores en tiempo de desarrollo.De echo se recomienda usarlos en vez de divs por esto mismo.
+
+      VIDEO 97 DESPLEGAR APLICACION EN PRODUCCION
+
+Para generar el build ya tenemos el comando 'build'.Recuerda que al hacer un build tanto Vue como React,Angular,etc hacen un tree shaking,eliminando todo lo que la aplicación no necesita para producción
+Si ejecuto este comando veré que Vue genera la carpeta 'dist' y que le pone hashes a los archivos de css y js para que los navegadores no los cacheen(si solo tuvieran el nombre el navegador los cachea y en sucesivos builds el navegador seguiría cogiendo el primer archivo de la caché,lo cual obviamente no querriamos ) 
+
+      SECCION 08 PRUEBAS EN POKEMON GAME
+
+Tenemos mucho que probar,emisiones,mocks,comprobar aleatoriedad de ciertas funciones, tranmisiones de padre/hijo o hijo/padre,etc...
+
+Puntualmente hablaremos sobre:
+1- Pruebas con Axios
+2- Pruebas con data aleatoria
+3- Pruebas con emisiones
+4- Multiples emisiones al mismo tiempo
+5- stubs
+6- Revisión de cambio en propiedades reactivas (data)
+
+Esta sección contiene muchas pruebas nuevas que son necesarias en el día a día del unit test
+
+          VIDEO 101 PRUEBAS CON AXIOS
+
+Vamos a probar el archivo donde creamos una instancia de axios.Realmente no hay mucho que probar ahí,excepto que la baseUrl sea la esperada.
+NOTA:recuerda que @/ en Vue hace referencia a la carpeta src luego:
+import pokemonApi from "@/api/pokemonApi";
+
+IMPORTANTE: fijate que salia el error 'cannot use import statement outside a module.Lo solucionamos agregando al jest.config.js:
+
+module.exports = {
+  preset: "@vue/cli-plugin-unit-jest",
+  transformIgnorePatterns: ["/node_modules/(?!(axios)/)"], <-añadir
+};
+
+TIP: cuando no sepa muy bien como proceder es buena idea hacer un console.log del file,por ejemplo:
+describe('PokemonApi: ', () => { 
+  test('should match baseUrl', () => { 
+    console.log(pokemonApi)
+   })
+ })
+
+Y asi podré ver el objeto que trae el modulo.Sabiendo sus propiedades ya podemos hacer la aserción:
+ expect(pokemonApi.defaults.baseURL).toBe("https://pokeapi.co/api/v2/pokemon");
+
+    VIDEO 102 PRUEBAS EN HELPERS
+
+FH recomienda empezar con las pruebas más fáciles,por eso empezamos por el file pokemonApi.Además,de ahora en adelante vamos a suponer que ese componente está perfectamente evaluado y funciona correctamente.
+Por esto vamos a seguir por los helpers(o podriamos seguir por el App.vue,pero los helpers son aun más sencillos).
+
+NOTA:esto es asi porque son funciones que no tienen relación con el mundo exterior,un componente siempre será más dificil que un helper,
+en teoría.
+
+Obviamente hay que importar las funciones que voy a testear.
+IMPORTANTE:cuando voy a testear equality en Jest tengo que preguntarme "¿de qué tipo?".Esto es reflejado por varios métodos de aserción de igualdad: toBe,toEqual y toStrictEqual.
+
+toBe compara la identidad referencial de los valores,mientras que toEqual hace una comparación profunda de las propiedades de los valores(usando Object.is).Por ello,toEqual es mejor para objetos(lo que incluye arrays y funciones,ojo).ToStrictEqual va un paso más allá que toEqual y también comprueba que dos objetos tengan el mismo tipo(lo cual en Typescript es muy interesante)
+
+TIP:dos objects en Javascript siempre apuntan a zonas de memoria diferente es por ello que compararlos con toBe dará fallo(luego toBe compara los punteros a memoria).ToBe para primitivos,toEqual para objetos.
+
+NOTA:muchas veces,al comparar arrays y objectos solo necesitaré comprobar partes de su contenido(que un objeto tenga determinada propiedad o un arreglo tenga determinado elemento...).Para ello Jest me proporciona los métodos toContain y toContainEqual.De nuevo la diferencia es la misma que toBe y toEqual
+
+expect.arrayContaining va un paso más alla y testea si un arreglo contiene un determinado subset de elementos(usando comparación profunda además).El método necesita de otra aserción adicional,lo cual lo hace muy flexible:
+
+expect([1,2,3]).toEqual(expect.arrayContaining([1,2]))
+
+expect.objectContaining funciona de forma análoga(ojo que ambos esperan o un objeto o un array)
+
+expect({a:1,b:2}).toEqual(expect.objectContaining({a:1}));
+
+Matching any/thing: en algunos casos ni siquiera es importante el valor del subelemento sino que simplemente haga match el type:
+expect(5).toEqual(expect.anything());
+expect(4).toEqual(expect.any(Number)) <-recuerda meterlo en un array si es la aserción adicional de arrayContaining
+
+Errors: Jest provee el método toThrowError para comprobar que una función lance un error.Opcionalmente,puedo pasarle un argumento para asertar el tipo del error lanzado:
+
+function divideBy10(a){
+  if(typeof a !== 'number){
+    throw new Error('NaN: ' + a);
+  }
+  return a/10;
+}
+
+expect(() => divideBy10('a')).toThrowError() <- observa como ejecutamos la función dentro del expect y como esperamos que tire un error,lo cual hará:
+expect( () => divideBy10('a')).toThrowError(/NaN/) <- también pasará
+
+TIP: recuerda que toEqual usa Object.is por detrás.Object.is determina si dos valores son iguales(ambos son true/false | undefined | null o strings,o el mismo objeto).Esta comparación no es igual al operador '==' ni al operador '==='
+Object.is('foo','foo') <- true
+Object.is(window,window) <-true pues son el mismo
+Object.is({},{}) <- false
+Object.is('foo','bar') <- false
+Object.is([],[]) <- false
+Object.is(null,undefined) <- false
+Object.is(null,null) <- true
+Fijate que is hago obj3 = obj1 y despues Object.is(obj1,obj3) da true pues apuntan al mismo objeto.Interesante este método.
+
+Esto es algo que tengo que tener muy claro.
+
+VIDEO 105 PRUEBAS EN POKEMON PICTURE
+
+Dado que en esta suite vamos a mandar props,no tiene sentido crear el wrapper en el beforeEach y dejarlo estático.Habrá que usar el segundo argumento del método shallowMount(cmp,options:{}):
+
+  test("1- should match snapshot", () => {
+    const wrapper = shallowMount(PokemonPicture, {
+      props: {
+        pokemonId: 1,
+        showPokemon: false,
+      },
+    });
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+
+NOTA: fijate que si no mando las props me da un warning,pero pasaría la prueba.
+TIP: puedo ver que tengo varios métodos como img.attributes() | img.classes() text(),exists(),etc.Dado que queremos ver si el src está cogiendo el 100 como pokemonId es tan sencillo como:
+expect(img.attributes('src)).toBe("xxxx/100.svg)
+y lo mismo para clases o wrapper.props()
+Desde luego tiene buena pinta el testing con Vue.Debería de tratar de ver como hacer todo esto en React(acceder a los atributos,props y las clases)
+IMPORTANTE: en React tengo toHaveClass y toHaveAttribute,ambos de la libreria react-testing-library, para hacer lo mismo:
+
+expect(getByText("Send")).toHaveAttribute(
+    "href",
+    "mailto:example@example.com?subject=Hello"
+  );
+* Parece que toHave devuelve todos,puedo acceder a uno en concreto con getAttribute
+expect(getByText("Send").getAttribute("href")).toMatch(
+    /mailto:example@example.com/
+  );
+
+Volviendo al video puedo hacer aserciones de esta forma:
+    expect(img.attributes("src")).toBe(
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/100.svg",
+    );
+
+    expect(img.classes()).toContain("hidden-pokemon");
+    // otra forma sería asi
+    expect(img.classes("hidden-pokemon")).toBe(true);
+
+Genial.Muy prehistoric esta libreria,asinto.
+
+VIDEO 107 PRUEBAS EN POKEMON OPTIONS
+
+Este componente es un tanto especial,ya que tenemos que asegurarnos de que al hacer click en un <li></li> emitimos un evento(además de asegurarnos que emite el valor que debe emitir)
+Recuerda también que es buen momento para crear la carpeta mocks con los pokemons,pues los estamos necesitando en varios files ya(de momento metemos la carpeta en unit/mocks).Fijate que en nuestro proyecto quizás hubiera sido buena idea haber creado más carpetas
+
+NOTA: fijate que tengo también toMatchInlineSnapshot,aunque esto me va a traer la template a la prueba,en vez de a una carpeta aparte.Puede que no sea lo que quiera cuando sean componentes grandes.Además,el html es el mismo,parece mejor idea tener las snapshots recogidas en una carpeta y no embebidas en el test
+
+  VIDEO 108 TESTING DE EMISIONES DE EVENTOS
+
+  

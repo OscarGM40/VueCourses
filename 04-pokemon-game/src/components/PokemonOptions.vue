@@ -2,10 +2,13 @@ import Counter from '@/components/Counter.vue';
 <template>
   <div class="options-container">
     <ul>
-      <li>1</li>
-      <li>2</li>
-      <li>3</li>
-      <li>4</li>
+      <li
+        v-for="pokemon in pokemons"
+        :key="pokemon.id"
+        @click="handleSelect(pokemon.id)"
+      >
+        {{ pokemon.name }}
+      </li>
     </ul>
   </div>
 </template>
@@ -13,6 +16,25 @@ import Counter from '@/components/Counter.vue';
 <script>
 export default {
   name: "PokemonOptions",
+  props: {
+    pokemons: {
+      type: Array,
+      required: true,
+      default: [],
+    },
+    hasSelected: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+  },
+  methods: {
+    handleSelect(pokemonId) {
+      // si quiero acceder al método built-in $emit fuera de la template necesito del this
+      if(this.hasSelected) return;
+      this.$emit('selectPokemon',pokemonId);
+    },
+  },
 };
 </script>
 
