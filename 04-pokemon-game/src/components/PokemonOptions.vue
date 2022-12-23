@@ -1,4 +1,3 @@
-import Counter from '@/components/Counter.vue';
 <template>
   <div class="options-container">
     <ul>
@@ -30,7 +29,7 @@ export default {
   },
   methods: {
     handleSelect(pokemonId) {
-      // si quiero acceder al método built-in $emit fuera de la template necesito del this
+      // si quiero acceder al método built-in $emit fuera de la template necesito del this.$emit emite eventos hacia arriba
       if(this.hasSelected) return;
       this.$emit('selectPokemon',pokemonId);
     },

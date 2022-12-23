@@ -409,4 +409,243 @@ NOTA: fijate que tengo también toMatchInlineSnapshot,aunque esto me va a traer 
 
   VIDEO 108 TESTING DE EMISIONES DE EVENTOS
 
-  
+ En Vue es incluso demasiado fácil ver que un evento se ha emitido(ojo,son eventos que hayan sido emitidos con $emit).Puedo acceder a los eventos emitidos con wrapper.emitted():
+   
+   const wrapper = shallowMount(PokemonOptions, {
+      props: {
+        pokemons: mockPokemons,
+        hasSelected: false,
+      },
+    });
+    const [pk1, pk2, pk3, pk4] = wrapper.findAll("li");
+    pk2.trigger("click");
+    console.log(wrapper.emitted()) 
+
+* Fijate que lo que hace es emitir un objeto con eventos como keys y que los valores emitidos van en un arreglo de arreglos.
+console.log
+ { selectPokemon: [ [ 2 ] ], click: [ [ [MouseEvent] ] ] }
+
+ Recuerda también que es obligación del desarrollador refactorizar código.Estos findAll son ideales para usar programación funcional:
+   
+   const liTags = wrapper.findAll("li");
+    liTags.forEach((li, index) => {
+      li.trigger("click");
+      expect(wrapper.emitted("selectPokemon")[index][0]).toBe(mockPokemons[index].id);
+    });
+
+VIDEO 109 PRUEBAS EN POKEMON PAGE
+
+PokemonPage es en teoría un poco más complejo ya que tiene la llamada a varios componentes hijos en él.Sin embargo,debemos tener en cuenta que ya hemos echo pruebas sobre esos componentes(o las iriamos a hacer),luego debo partir de la premisa de que funcionan correctamente.
+NOTA: esta es la primera vez que tenemos un componente al que shallowMount se le pudiera quedar corto y necesitemos de mount:
+
+import { shallowMount,mount } from "@vue/test-utils";
+
+
+TIP: pudiera parecer que crear un snapshot puede ser una prueba útil pero no lo es:
+  test("should match with its snapshot", () => {
+    expect(wrapper.html()).toMatchInlineSnapshot(
+      `<h1>Espere por favor...</h1>`
+    );
+  });
+
+Obviamente si le pasaramos un pokemon y entrara por el v-else si que tendría sentido la snapshot
+
+Bien,una prueba que si es interesante es comprobar que en el mounted se llama al mixPokemonArray.Fijate que hay que espiar el objeto PokemonPage.methods <- pero en su propiedad methods:
+
+test("should call mixPokemonArray method when mounted", () => {
+    const mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    expect(mixPokemonSpy).toHaveBeenCalledTimes(1)    
+  });
+
+  IMPORTANTE: todo espia debe ser definido antes de montar el componente.Esta prueba va a fallar(crear si que crea el espia,pero ya se disparó todo en el componente).Es decir que antes de crear el wrapper hay que crear el espia,pues al crear el wrapper se dispara el mounted:
+
+   beforeEach(() => {
+    mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    wrapper = shallowMount(PokemonPage);
+    jest.clearAllMocks;
+  });
+
+La otra solución,y para que no cree un espia en cada test,lo cual la hace mejor solución es volver a llamar al shallowMount,que disparará el mounted,etc:
+
+ test("should call mixPokemonArray method when mounted", () => {
+    const mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    shallowMount(PokemonPage); <- remontamos el cmp
+    expect(mixPokemonSpy).toHaveBeenCalledTimes(1);
+  });
+
+  Ambas arreglan el problema,la segunda pudiera ser un poco más eficiente.
+  NOTA:además,si creo un espia por cada test puedo tener problemas,es recomendable la segunda opción,diria yo.
+  Todo esto es terriblemente interesante,asinto.
+  TIP: también se puede espiar al wrapper.vm,espiar a PokemonPage.methods 
+
+    VIDEO 110 SNAPSHOT CON DATA Y STUBS
+
+Ya hemos visto que el snapshot no tiene mucho sentido,sin embargo,si que lo tendría si pudieramos tener toda la información y pudieramos esperar a sacar ese snapshot.
+
+TIP: debo ser muy consciente de que puedo montar cuantas veces quiera el componente(es decir,que puedo llamar al shallowMount varias veces).Incluso puedo hacer unas pruebas con shallowMount y otras con montado profundo usando mount
+
+Volviendo al test,para entrar por el v-else tengo que tener un pokemon,pero no sólo eso,pues al entrar por el v-else se van a montar los otros dos componentes y necesitarian toda la data.Es decir que tengo que recrear todo lo que tengo en data,prácticamente,para que funcione todo bien.Perfectamente se puede hacer esto en Vue.
+TIP:fijate que no son props,es la data:
+
+    const wrapper = shallowMount(PokemonPage, {
+      data() {
+        return {
+          pokemonArr: mockPokemons,
+          pokemon: mockPokemons[1],
+          showPokemon: false,
+          showAnswer: false,
+          message: "",
+          hasSelected: false,
+        };
+      },
+    });
+
+*Si ahora le saco la snapshot veré esto:
+    expect(wrapper.html()).toMatchInlineSnapshot(`
+      <div>
+        <h1>¿Quién es este pokémon?</h1>
+        <pokemon-picture-stub pokemonid="2" showpokemon="false"></pokemon-picture-stub>
+        <pokemon-options-stub pokemons="[object Object],[object Object],[object Object],[object Object]" hasselected="false"></pokemon-options-stub>
+        <!--v-if-->
+      </div>
+    `);
+  });
+
+* ¿Pero que es ese <pokemon-picture-stub>?¿Y porqué falla la prueba?Esto es porque estamos usando shallowMount.ShallowMount no va a recrear los subcomponentes totalmente,sino que crea esa etiqueta que realmente no hace nada.
+Obviamente si uso mount se montarán los hijos,pero montarlos implicará que se disparen sus ciclos de vida,podría causar re-renderizados,etc,asi que hay que tener claro que mount es más costoso y no siempre es necesario
+
+Si usamos mount veriamos esto(ya no tenemos los stubs sino que renderiza los subcomponentes):
+
+   expect(wrapper.html()).toMatchInlineSnapshot(`
+      <div>
+        <h1>¿Quién es este pokémon?</h1>
+        <div class="pokemon-container"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/2.svg" class="hidden-pokemon" alt="pokemon"></div>
+        <div class="options-container">
+          <ul>
+            <li>Bulbasaur</li>
+            <li>Ivysaur</li>
+            <li>Venusaur</li>
+            <li>Charmander</li>
+          </ul>
+        </div>
+        <!--v-if-->
+      </div>
+    `);
+
+Hasta donde sea posible se recomienda usar shallowMount,pero siempre que se necesite de los subcomponentes hay que usar mount
+TIP:incluso llamando a mount puedo volver a shallow:
+const wrapper = mount(ComplexComponent,{
+  shallow: true // <- ya no es un mount
+})
+
+VIDEO 111 TAREA. PRUEBA DE QUE LOS SUBCOMPONENTES EXISTAN
+
+TIP: la libreria provee el método findComponent para buscar subcomponentes en un cmp.Ojo,si los llamo sin usar el objeto de opciones  que hay que importar los subcomponentes también:
+
+import PokemonPicture from "@/components/PokemonPicture";
+
+  const PokemonPictureCmp = wrapper.findComponent(PokemonPicture)
+  expect(PokemonPictureCmp.exists()).toBe(true)
+  console.log(PokemonPictureCmp.props())
+
+  O también puedo no importarlo y usar
+  const PokemonPictureCmp = wrapper.findComponent({name: 'PokemonPicture'})
+  Ambas son correctas
+
+Fijate que FH lo hizo con shallowMount y buscando por la tag,despues comprobando con attributes,y que al usar mount estoy obligado a usar findComponent.
+Sin embargo,puedo usar findComponent con shallowMount también, y la prueba funciona igual.Parece la mejor opción,aunque claro que buscar por tags y despues sus attributes también es totalmente válida
+
+  const wrapper = mount(PokemonPage, {
+      data() {
+        return {
+          pokemonArr: mockPokemons,
+          pokemon: mockPokemons[1], //id 2
+          showPokemon: false,
+          showAnswer: false,
+          message: "",
+          hasSelected: false,
+        };
+      },
+    });
+    
+    // existen los subcomponentes
+    const PokemonPictureCmp = wrapper.findComponent(PokemonPicture);
+    const PokemonOptionsCmp = wrapper.findComponent(PokemonOptions);
+    expect(PokemonPictureCmp.exists()).toBe(true);
+    expect(PokemonOptionsCmp.exists()).toBe(true);
+    
+    // Picture reciba la prop pokemonId con valor correcto
+    expect(PokemonPictureCmp.props("pokemonId")).toBe(mockPokemons[1].id);
+
+    // Options debe tener la prop pokemons
+    expect(PokemonOptionsCmp.props("pokemons")).toBeDefined();
+    // assert extra
+    expect(PokemonOptionsCmp.props("pokemons")).toEqual(mockPokemons);
+
+IMPORTANTE: puede que no quiera dejar el espia con la funcionalidad intacta,dado que un espia es un mock puedo hacer que retorne cualquier cosa y asi no dispara la funcionalidad original.Además,en vez de usar jest.spyOn(object,methodName) puedo usar object[methodName] = jest.fn(). Ejemplo:
+
+const newGameSpy = jest.spyOn(PokemonPage.methods,'newGame')
+const newGameSpy = jest.spyOn(PokemonPage.methods,'newGame').mockImplementation(() => true)
+PokemonPage.methods["newGame"] = jest.fn();
+* recuerda que puedo hacer lo mismo usando wrapper.vm tras montar el cmp
+const newGameSpy = jest.spyOn(wrapper.vm,'newGame') <- tras el shallowMount
+wrapper.vm['newGame'] = jest.fn() <-obviamente tras estar definido wrapper.
+Muy interesante todo esto,asinto
+
+VIDEO 112 PRUEBAS EN LAS PROPIEDADES REACTIVAS DEL COMPONENTE
+
+Para realizar esto fijate que puedo llamar literalmente al método que quiera usando wrapper.vm.methodName:
+
+   const wrapper = mount(PokemonPage, {
+       data() {
+         return {
+           pokemonArr: mockPokemons,
+           pokemon: mockPokemons[1], //id 2
+           showPokemon: false,
+           showAnswer: false,
+           message: "",
+           hasSelected: false,
+         };
+       },
+     });
+    //  puedo llamar a un método mediante wrapper.vm.methodName()
+    wrapper.vm.checkAnswer(2); <- llamada física al método
+
+NOTA: cuando haga alguna modificación a alguna de las propiedades reactivas,y ese cambio deba hacer alguna modificación en el DOM(más bien sería un VirtualDOM,pues estamos en testing) recuerda que tengo que usar asincronia:
+ await wrapper.vm.checkAnswer(2); <-
+ expect(wrapper.find("h2").exists()).toBe(true);
+
+ Fijate que esto es extrapolable a cualquier framework.Usar await va a disparar cualquier watcher que tuviera,los ciclos de vida correspondientes,etc,por ello hay que esperar(porque cambia el DOM,recuerda).
+
+ IMPORTANTE:recuerda que en wrapper.vm tengo todas las propiedades reactivas que he creado:
+  await wrapper.vm.checkAnswer(2); //recuerda que el 2 va a coincidir
+  expect(wrapper.find("h2").exists()).toBe(true); <- este cambio en el DOM obliga a asincronia
+  expect(wrapper.vm.showPokemon).toBe(true) <- propiedad reactiva
+
+    SECCION 09 OPTIONS-API -RUTAS CON VUE ROUTER Y LIFECYCLES EN VUE
+
+Recordemos que el routing y el concepto de SPA va intrinsicamente ligado.Las aplicaciones de Angular,Vue o React suelen ser SPA que navegan (o simulan navegar) a otras rutas.Veremos el routing en Vue,queryParameters,segmentos de Url,... :
+ En esta sección aprenderemos profundamente a utilizar y configurar el Vue Router, el cual permite crear una navegación entre componentes, puntualmente veremos:
+
+1- Vue Router
+2- Navegación por:
+   Path
+   Nombre
+   Programáticamente
+   Estáticamente
+3- Guards
+   Síncronos
+   Asíncronos
+4- 404 Page
+5- Rutas hijas
+6- Diferentes diseños entre router views
+7- Argumentos por URL (Query parameters)
+8- Segmentos por URL
+9- Lifecycle hooks
+    Nota, con el Options API, luego hablaremos del composition API en otras secciones.
+    Llamar cada lifecycle hooks y los más comunes
+
+Es una sección grande en la cual quiero enfocarme en que dominemos bien el Vue Router para aplicaciones futuras
+
+
+ 

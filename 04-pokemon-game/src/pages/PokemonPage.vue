@@ -40,13 +40,13 @@ export default {
       try {
         this.pokemonArr = await getPokemonOptions();
         // fijate que si imprimo una props tiene varias propiedades(la data esta en target)
-        // console.log(this.pokemonArr)
+        // console.table(this.pokemonArr)
         // para obtener un numero random entre 0 y 3 se usa Math.floor(Math.random() * 4) <- dado que el rango es desde 0.00001 hasta 3.99999 al bajarlo con floor me sale entre 0 y 3 además con las mismas probabilidades
         const rndInt = Math.floor(Math.random() * 4);
         // agarro un pokemon de forma aleatoria
         this.pokemon = this.pokemonArr[rndInt];
       } catch (e) {
-        console.log("Error in the request: ", e);
+        // console.log("Error in the request: ", e);
         this.pokemonArr = [];
       }
     },
@@ -56,10 +56,11 @@ export default {
       this.showPokemon = true;
       this.message =
         selectedId === this.pokemon.id
-          ? `Correcto, es ${this.pokemon.name}! `
+          ? `Correcto, es ${this.pokemon.name}!`
           : `Oops, era ${this.pokemon.name} ...`;
     },
     async newGame() {
+      console.log('calling the original')
       this.pokemon = null;
       this.pokemonArr = [];
       this.showPokemon = false;
