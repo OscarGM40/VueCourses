@@ -647,5 +647,533 @@ Recordemos que el routing y el concepto de SPA va intrinsicamente ligado.Las apl
 
 Es una sección grande en la cual quiero enfocarme en que dominemos bien el Vue Router para aplicaciones futuras
 
+    VIDEO 116 CONCEPTO DE SPA
+
+Ventajas:
+ Tras la carga inicial la experiencia es fluida y rápida
+ Menor estrés para el servidor
+ El caché puede reducir peticiones
+ Mejor experiencia de usuario(no full refresh)
+ Carga independiente de módulos(lazy load and child Routes)
+
+Recuerda que la principal diferencia entre una pagina web tradicional y una SPA es como se gestiona la navegación 
+
+Desventajas:
+ Es complicado implementar SEO(Search Engine Optimization).
+ Un cambio pequeño puede requerir un build completo(esto es muy subjetivo)
+ La carga inicial puede ser pesada(ligado a la ventaja 1)
 
  
+
+ Si voy a crear aplicaciones tipo e-commerce usar una SPA no es la mejor opción,pues los crawlers de Google no van a encontrar todo correctamente.Aqui salen a superficies soluciones como Nuxt,para crear el routing de forma que no sea penalizado por estos bots
+
+    VIDEO 117-118 INICIO PROYECTO Y CREACION PAGINAS NECESARIAS
+
+Empezamos una nueva app con 'vue create <app-name>'.Será una aplicación enfocada a ver el routing de Vue y sus lifecycles.
+NOTA: las paginas no son más que otros componentes realmente,solo que es un agrupador de otros componentes al que se le asigna una URL.Este agrupador ni siquiera tiene porque abarcar el 100% de la UI(ejemplo un dashboard).
+NOTA: FH recalca que es buena idea crear carpetas en base a modulos(autenticación,productos,etc...).Dentro de estos modulos crearé los mismos subfolders normalmente(components,services,helpers,router,store,...)De esta forma en esa carpeta components solo tengo componentes relacionados a productos,o services relacionados a productos,etc.
+
+Es una buena práctica llamar a un componente que representa una pagina con 'CmpPage.extension' es decir HomePage.vue o AboutPage.vue.
+Creamos pues un subfolder modules y un par de modules,en uno de ellos creo otro subfolder pages y tres paginas con una template mínima.
+Fijate que en Vue un componente lo único que necesita es de la tag <template></template>.El JS y el CSS son opcionales(sus tags),pero el HTML es obligatorio para considerarse componente en Vue.
+
+Agregar todo como un reducer va a ser bastante sencillo,habrá que crear reducers en los WorkSets y mandarlos al hijo(igual no hace falta declararlos en el padre y si en el store).Recuerda crear las acciones y las action creators:
+
+import { useReducer } from "react";
+const ACTIONS = {
+  TOGGLEWORKONE:'toggleWorkOne',
+  TOGGLEWORKTWO:'toggleWorkTwo',
+  TOGGLEWORKTHREE:'toggleWorkThree',
+}
+
+const reducer = (state,action) => {
+  switch(action.type){
+    case 'hasWorkOne':
+    return {
+      ...state,
+      hasWorkOne: action.payload
+    }
+  }
+  default:
+  return {...state}
+}
+
+En el JSX:
+const [state,dispatch] = useReducer(reducer,{
+  toggleWorkOne:false,
+  toggleWorkTwo:false,
+  toggleWorkThree:false,
+})
+* Recuerda no usar literales para el type en el dispatch,y que el trabajo en el reducer puede ser delegado a funciones,etc.Siempre programar bien,cual asinto
+<switch value={state.workSetOne.hasWorkOne} onChange={() => dispatch({type:ACTIONS.TOGGLEWORKONE,payload:e.target.value})>
+
+    VIDEO 119 CONFIGURACION MANUAL DEL ROUTER DE VUE
+
+Docu: https://router.vuejs.org/
+Podemos ver que el router está en la versión 4.Obviamente lo primero es instalarlo:
+>yarn add vue-router@4
+
+El primer paso es definir los componentes que harán de página(realmente ya tenemos echo esto):
+const Home = { template: HomePage } <- normalmente va a ser un componente importado
+const About = {template: '<div>About</div>} <- aunque puede usarse html,no llegaremos lejos asín -_-
+
+ El segundo paso es definir las rutas:
+const routes = [
+  { path: '/',component: Home },
+  { path: '/about',component: About },
+]
+
+El tercer paso es crear la instancia del router(VueRouter.createRouter({}) devuelve esa instancia):
+const router = VueRouter.createRouter({
+  history: VueRouter.createWebHashHistory(), tipo de historial a manejar(éste usa el #)
+  routes, <- las rutas del paso dos
+})
+* El tipo de historial con # (createWebHashHistory) ayuda a que tenga más compatibilidad la aplicación.Otra es el createWebMemoryHistory que hace que las rutas en el URL no se vean diferentes y todo lo maneja en memoria  
+
+El cuarto paso es usar esa instancia(en el main.js):
+const app = Vue.createApp({})
+app.use(router) <- es esta linea,asinto
+app.mount('#app')
+
+TIP:fijate que VueRouter es la libreria que acabamos de instalar y se pueden usar import modularizados.No tiene sentido usar VueRouter.createRouter pudiendo traerme sólo el método(el ejemplo de la docu es con una CDN y tiene que usar el objeto entero):
+
+import ListPage from "../modules/pokemon/ListPage.vue";
+import AboutPage from "../modules/pokemon/AboutPage.vue";
+import PokemonDetailPage from "../modules/pokemon/PokemonDetailPage.vue";
+import { createRouter,createWebHashHistory } from 'vue-router'; <- modularizar los imports
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: AboutPage },
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+];
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes: routes,
+});
+
+Y ya simplemente uso esa instancia de VueRouter:
+import { createApp } from "vue";
+import App from "./App.vue";
+import { router } from "./router/router";
+
+createApp(App).use(router).mount("#app");
+
+IMPORTANTISIMO: esto por si solo no hace nada,me falta el tipico <outlet /> que en Vue se llama <router-view />.De esta forma veré los componentes
+En donde quiera(en este ejemplo en el App.vue)
+<template>
+  <img alt="Vue logo" src="./assets/logo.png" />
+  <router-view></router-view>
+</template>
+
+VIDEO 120 NOT FOUND PAGE
+
+Si nuestra aplicación entra a una url que no existe ahora mismo sólo da un warning por consola.Esto es algo que debo controlar como desarrollador de software.En Vue de momento hay que usar una funcion 'pathMatch' que el VueRoute sabe entender(ojo con la sintaxis que es /:):
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: AboutPage },
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+  { path: "/:pathMatch(.*)*", component: <div>not found</div> },
+];
+
+* Fijate que puedo usar propiedades computadas en el reducer.Obviamente tendré que mandar {name:"",value:""} en el dispatch:
+export const formReducer = (state,action) => {
+  switch(action.type) {
+    case "CHANGE_INPUT":
+      return {
+        ...state,
+        [action.payload.name]: action.payload.value
+      }
+  }
+}
+VIDEO 121 LAZY LOADING DE PAGINAS
+
+La idea principal del lazy-load es que nosotros tengamos un bundle inicial más pequeños y que los demás componentes se carguen dinámicamente(y cuando sean necesarios).
+Dado que vamos a cargar un componente de forma perezosa no necesito el import,ya que ese import realiza la carga física del archivo en ese momento:
+
+// import AboutPage from "../modules/pokemon/pages/AboutPage"; <- éste ya sobraría
+import PokemonDetailPage from "../modules/pokemon/pages/PokemonDetailPage.vue";
+import NotFoundPage from "../modules/shared/pages/NotFoundPage.vue";
+
+import { createRouter, createWebHashHistory } from "vue-router";
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: () => import('./../modules/pokemon/pages/AboutPage') }, <- ojo que es una funcion ejecutada === (() =>)
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+  { path: "/:pathMatch(.*)*", component: NotFoundPage },
+];
+
+NOTA: esto creará un file llamado 0.js(y asi sucesivamente 1.js, 2.js,etc).Dado que esta nomenclatura no nos aporta nada Webpack permite renombrar el chunk:
+
+const routes = [
+  {
+    path: "/",
+    component: () =>
+      import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+  },
+  {
+    path: "/about",
+    component: () =>
+      import(/*webpackChunkName: "AboutPageChunk"*/ "./../modules/pokemon/pages/AboutPage"),
+  },
+
+Fijate que si estoy con Vite no va a funcionar el renombrado del chunk
+
+    VIDEO 122 NAVEGAR ENTRE PAGINAS - ROUTERLINK
+
+ TIP: recuerda que puedo llamar al componente como quiera siempre que use una exportación por defecto:
+ import Navbar from "./modules/shared/components/Navbar";
+ Bien pudiera ser:
+ import Navbar2 from "./modules/shared/components/Navbar";
+
+ NOTA: incluso puedo hacer el lazy loading en el componente:
+ <script>
+// import Navbar from "./modules/shared/components/Navbar"; <- ya no me haría falta
+
+export default {
+  name: "App",
+  components: {
+    Navbar: () => import('./modules/shared/components/Navbar')
+  },
+};
+</script>
+* Sin embargo,esto funciona en el router porque es asincrono,pero el componente es síncrono.HAy que definir al componente como asíncrono.Esto lo conseguimos trayendonos un método wrapper de vue que envolverá al import:
+
+<script>
+import { defineAsyncComponent } from "vue";
+
+export default {
+  name: "App",
+  components: {
+    Navbar: defineAsyncComponent(() => import("./modules/shared/components/Navbar")),
+  },
+};
+</script>
+
+Obviamente la libreria vue-router estará usando esto entre bambalinas y no tenemos que hacerlo nosotros.Fuera del router tenemos que hacerlo manualmente
+Volviendo al objetivo del router,si usará anchor tags tendría muchos problemas(como tener que usar #):
+
+<template>
+  <div>
+    <a href="/">Pokemon List</a>
+    <a href="/#/pokemon/id">Pokemon Detail</a>
+    <a href="/#/about">About</a>
+  </div>
+</template>
+
+Obviamente hay que usar el link de la libreria vue-router,al que tengo acceso desde el momento que la instalé:
+
+VIDEO 123 ROUTER LINK ACTIVE - RUTA ACTIVA
+
+NOTA: fijate que al usar <style scoped /> vue lo que hace es agregar un atributo <data-v-hash>.Volviendo al objetivo del video,si inspecciono el Html podemos observar que el router de vue agrega las clases router-link-active y router-link-exact-active.Está última clase la podemos usar para dar estilos al anchor tag que haga match con la ruta actual:
+<style scoped>
+div {
+  padding: 0 30px;
+}
+div a {
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0 10px;
+}
+.router-link-exact-active {
+  color: #42b983;
+}
+</style>
+
+
+VIDEO 124 LIFECYCLES
+
+TIP: en el CompositionsAPi se les conoce como Hook inside setup(??).Realmente lo único que cambia es que en la Options API se llama 'mounted' y en la compositions se llama 'onMounted',más al estilo React.
+Un lifecycle hook no es más que un método que se va a disparar en cierto momento,por ejemplo beforeCreate me permite realizar algo antes incluso de que se cree el VDOM.Despues vendría el created,que se dispara justo cuando se haya creado todo,etc.Otros como beforeMount,beforeUpdate,mounted,updated también queda claro cuando se disparan.Vue también tiene ciclos de vida como beforeUnmount o unmounted,para cuando se desmonte un componente
+Todo esto lo puedo ver de forma genérica aqui: https://vuejs.org/guide/essentials/lifecycle.html#lifecycle-diagram
+Aqui información detallada según cilo de vida: https://vuejs.org/api/composition-api-lifecycle.html#onmounted
+También hay un catálogo por nombre en el PDF del curso. 
+Normalmente se usan unos pocos ciclos de vida(mounted,updated,unmounted,etc)
+
+VIDEO 125 DISPARAR CICLOS DE VIDA
+
+Vamos a disparar todos los lifecycle como ejemplo:
+
+<script>
+export default {
+  beforeCreate() { },
+  created() { },
+  beforeMount() { },
+  mounted() { },
+  beforeUpdate() { },
+  updated() { },
+  activated() { },
+  deactivated() { },
+  beforeMount() { },
+  unmounted(){} ,
+  errorCaptured: (err, vm, info) => { },
+  renderTracked(){},
+  renderTriggered(){},
+    
+}
+</script>
+
+NOTA: renderTriggered y renderTracked se disparan cuando sucede un cambio en el VDOM.Si el cambio de una propiedad reactiva no impacta en el DOM,sólo se dispararán beforeUpdate y updated(estas dos se disparan siempre)
+Obviamente muchos lifecycles ni siquiera deben de usarse,al final como siempre,es usar sentido común.
+
+VIDEO 126 SEGMENTOS DE UNA URL Y QUERYPARAMETERS
+
+La parte del segmento se suele usar para rescatar un id(producto/123),mientras que los queryParams suelen estar orientados(producto/123?costo=100).Se pueden ir concatenando con un ampersand (dominio/segmento?costo=100&rango=10).
+Hay varias tecnicas para rescatar el valor de un segmento de la url parametrizado(usaremos /pokemon/:id).La primera que vamos a ver es accediendo mediante this.$route($ es un objeto especial que me permite acceder a muchas cosas en Vue y es muy importante).
+
+En el componente PokemonById
+<script>
+export default {
+
+  created(){
+    console.log(this.$route)  <-this.$ es un objeto especial built-in de Vue
+  }
+
+}
+</script>
+
+{fullPath: '/pokemon/234', path: '/pokemon/234', query: {…}, hash: '', name: undefined, …}
+
+Ahora ya podria rescatar el id con un split,etc(aunque tengo una propiedad route.params para ni siquiera tener que usar un split).Fijate que el lifecycle mounted también me valdría,aunque el created nos vale igual.
+route.params => {id:"100"} <- ojo que el valor de route.params es un string,todo es un string cuando viaja por la URL
+
+Sabiendo todo esto podemos rescatarlo fácilmente.IMPORTANTE: fijate que la propiedad data en Vue no sólo me vale para rescatar las props de un componente padre,sino para "rescatar" valores del propio componente.Es decir,que vale para declarar la data que usará el componente,siendo la fuente de esa data cualquier cosa:
+
+<template>
+  <h1>Pokemon Detail Page <span>El id es {{this.id}}</span></h1>
+</template>
+
+<script>
+export default {
+  data(){
+    return {
+      id:null, <-fijate que el id viene de un lifecycle de este componente
+    }
+  },
+  created(){
+    const {id} = this.$route.params
+    console.log(id)
+    this.id=id;
+  }
+}
+</script>
+
+      VIDEO 127 RECIBIR PROPS POR URL
+
+Sin embargo,usar la propiedad data no nos permite poner ninguna validación a ese id,y sabemos que es requerido y es un number.Sería aún mejor usar la zona de props,pero nos encontramos con un problema,y es que no podemos hacer el this.id=id pues da un error de mutación de una prop:
+export default {
+  props:{
+    id:{
+      type: Number,
+      required:true
+    }
+  },
+  created(){
+    const {id} = this.$route.params
+    console.log(id)
+    // this.id=id; <-no se puede mutar una prop
+  }
+
+En este punto vemos como podemos rescatar el id de varias formas:
+En la template directamente
+<template>
+  <h1>El id es {{ this.$route.params.id}}</h1>
+</template>  
+
+En la data directamente,sin usar el lifecycle:
+export default{
+  data(){
+    return {
+      id: this.$route.params.id <-obviamente luego usaré {{id}} en la template
+    }
+  }
+}
+Pero no queremos hacer esto,queremos obligar al resto de desarrolladores a que venga un id por props.¿Como hacer esto?.La clave está en la declaración de la ruta,ya que también tiene acceso al this.$route:
+
+  {
+    path: "/pokemon/:id",
+    component: () => import( /*webpackChunkName: "PokemonDetailPageChunk"*/ "./../modules/pokemon/pages/PokemonDetailPage"),
+    props: (route) => {console.log(route)}
+  },
+Veremos que es lo mismo que imprime this.$route(luego tengo acceso a segmentos URL y a los queryParams).
+NOTA: para mandar por props algo tengo que retornarlo en esa callback que usa la propiedad props:
+
+NOTA:recuerda que cualquier objeto reactivo declarado en Vue,React,etc tiene un getter y un setter(en Vue se llaman Target y Handler) y que cualquier cambio sobre un objeto reactivo disparará ciclos de vida.
+
+TIP: sabiendo que el return de las props en la declaración de una ruta va a llegar al componente puedo pasar lo que quiera.Sin embargo,sólo lo que también esté marcado como props en el componente será impreso como props,sino son atributos (this.$attrs):
+ 
+ props: (route) => {
+      return {
+        id: 100, <-esto lo veré como props
+        nombre:'Fernando', <-esto va como attributes
+        apellido:'Herrera'
+      }
+    }
+Obviamente no nos interesa pasar nada en duro.
+
+ {
+    path: "/pokemon/:id",
+    component: () => import( /*webpackChunkName: "PokemonDetailPageChunk"*/ "./../modules/pokemon/pages/PokemonDetailPage"),
+    props: (route) => {
+      return {
+        id: route.params.id 
+      }
+    }
+  },
+
+  NOTA: áun veremos un warning pues esperamos un numero y por naturaleza todo viene como string de una URL.Además,si mandamos un string por la ruta también va a salir el warning de la prop.Podemos comprobar esto en esa callback:
+  props: (route) => {
+      const id = Number(route.params.id);
+      return isNaN(id) ? { id: 1 } : { id: id };
+    },
+  },
+
+      VIDEO 128 PETICION HTTP Y REDIRECCIONES
+
+IMPORTANTE: ya no nos vale el <router-link to="/pokemon/12">Go to ...</router-link> pues tiene que ser algo dinámico.Es decir que tengo que usar un v-bind(por ser un atributo,recuerda).Segun la documentación tengo que usar:
+
+Si es un segmento(terminará siendo /:userId)
+<router-link :to="{params:{userId:'123'}}">Go to user</router-link>
+
+Si es un queryParam(terminará siendo /register?plan=private)
+<router-link :to="{path:'register',query:{plan:'private'}}">Register </router-link>
+
+NOTA:ojo que las comillas simples son obligatorias
+
+En cuanto al componente creamos un method que haga una petición con ese id y establecemos en la data el pokemon,pero fijate que llamamos al método en el created y el componente sólo se va a crear una vez.Tenemos que crear un watch(esto sería el tipico useEffect):
+ data() {
+    return {
+      pokemon: null,
+    };
+  },
+  created() {
+    // si bien hay gente que llama a una petición inicial en el mounted,la recomendación es en el created,ya que el componente estará montado y listo para su manipulación y reacción del mismo(el created va un poco despues del mounted pues)
+    this.getPokemon();
+  },
+  methods: {
+    async getPokemon() {
+      try {
+        const pokemon = await fetch(
+          `https://pokeapi.co/api/v2/pokemon/${this.id}`
+        ).then((r) => r.json());
+        console.log(pokemon);
+        this.pokemon = pokemon;
+      } catch (e) {
+        // no quiero imprimir el error,dado que no hay un pokemon el usuario no tiene nada que hacer aqui y le vamos a redireccionar
+        this.$router.push("/about");
+      }
+    },
+  },
+  watch: {
+    id() {  <- esto es igual que useEffect( () => this.getPokemon(),[id])
+      this.getPokemon();
+    },
+  },
+
+  Fijate cómo hemos redireccionado con this.$router.push.No confundir con el anterior que era this.$route y es para las rutas,el de ahora es el propio router que obviamente permite redirigir y controlar el historial
+
+  Fijate que tuve que darles el mismo name a la ruta y al router-link para quitar el warning:
+  
+   <router-link :to="{ name: 'Pokemon', params: { id: 2 } }">Pokemon Detail</router-link>
+     
+  { path: "/pokemon/:id", name:"Pokemon", component: () =>
+
+  NOTA:dado que estamos usando el name para enlazarlos puedo cambiar el path de la ruta a /pokemons/ o /pokes por ejemplo,que lo importante es que coincidan los dos name 'Pokemon'.Trabajar con names es una ventaja en este sentido.En resumen,el nombre es menos volátil que el path
+
+        VIDEO 129 REDIRECCION DESDE EL ROUTER
+
+  Hay muchas ocasiones en las que quiera redireccionar ya desde el archivo de rutas inicial(como por ejemplo redirigir a la 404Page).Es realmente sencillo,solo hay que usar la propiedad 'redirect':
+   {
+    path: "/",
+    redirect: "/home", <- 
+  },
+  {
+    path: "/home",
+    name: "home",
+    component: () =>
+      import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+  },
+  {
+    path: "/about",
+    name: "about",
+
+Y dado que ya hemos visto que es buena idea trabajar con nombres de rutas para abstraernos del naming del path,le ponemos nombre ya a cada una y usamos el router-link por nombre de ruta(lo cual obliga a usar v-binds de atributos,claro)
+
+  <router-link :to="{ name: 'home' }">Pokemon List</router-link>
+  <router-link :to="{ name: 'Pokemon', params: { id: 2 } }">Pokemon Detail</router-link>
+  <router-link :to="{ name: 'about' }">About</router-link>
+
+TIP:de igual forma puedo redirigir mediante $router por name y no por path:
+this.$router.push({ name: 'routename' }) 
+Genial,todo bien claro hasta ahora
+
+        VIDEO 130 ROUTER-LINK PERSONALIZADO
+
+Queremos tener mayor control sobre los router-link anteriores.Vamos a crearnos un componente para abstraer un Link:
+
+<template>
+  <a v-if="isExternalLink" :href="link.to" target="_blank"> {{ link.name }} </a>
+  <router-link v-else :to="link.to" v-slot="{ href, isActive }">
+    <a :class="isActive ? 'is-active' : 'normal-link'" :href="href"> {{ link.name }} </a>
+  </router-link>
+</template>
+
+<script>
+export default {
+  props: {
+    link: {
+      type: Object,
+      required: true,
+    },
+  },
+  computed: {
+    isExternalLink() {
+      return this.link.to.startsWith("http");
+    },
+  },
+};
+</script>
+
+<style scoped>
+.is-active {
+  color: #42b983;
+}
+.normal-link {
+  color: #c6c5c5;
+}
+</style>
+
+Fijate en el v-if + v-else y en v-slot,del que sacamos varias cosas(profundizar más sobre v-slot).Fijate que fácil es pasar clases condicionalmente en Vue con un simple v-bind.Realmente es muy sencillo crear bindings en Vue a métodos,props,clases,etc.Aqui si lo hace bien Vue.
+
+En el navbar,que usará este custom cmp con un v-for simplemente creamos una data acorde a lo que necesitamos,haciendo match con el name:
+
+  <CustomLink v-for="link in links" :key="link.to" :link="link" />
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+export default {
+  data(){
+    return {
+      links:[
+        { to: '/home',name:'Pokemons' },
+        { to: '/pokemon/50',name:'Por ID' },
+        { to: '/about',name:'About' },
+        { to: 'https://google.com',name:'Google' },
+        ]
+    }
+  },
+  Recuerda que en Vue tmb se necesita una unique key para que no se lie el framework en las iteraciones
+
+V-SLOT: sabemos que los slots sirven para insertar contenido HTML dentro de los componentes.También sabemos que <router-link /> tiene acceso a varias propiedades que puedo extraer(fijate que hay que saber esto de antemano).Sabiendo pues que de ese componente puedo extraerle el isActive o el href las puedo sacar y mandarlas a un elemento interno(tiene pinta de ser muy usado en forms)
+Docu: https://v3.router.vuejs.org/api/#v-slot-api-3-1-0
+Para poder usar el v-slot el componente debe exponer algo(objetos,propiedades,métodos,etc)
+Muy interesante este video
+
+      VIDEO 131 MULTIPLES ROUTER-VIEW => RUTAS HIJAS
+
+Usar rutas hijas permite tener una aplicación con diseños estructurales totalmente diferentes entre pantallas.
