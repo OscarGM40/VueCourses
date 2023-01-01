@@ -1,0 +1,28 @@
+        SECCION 10 INTRODUCCIÓN A VUEX
+
+Vuex es similar a Redux en React,es su gestor de estado,es decir,essu solución para gestionar el paso de información entre componentes alejados en el árbol.
+Es una sección fundamental.
+Vuex es su gestor de estado más usado en Vue.Conceptos generales:
+
+State:objeto reactivo con el estado actual/inicial
+acciones: acciones asincronas que modifican el state
+mutations: una acción siempre llama a una mutación,y es ésta la que cambia el state realmente
+getters: los getters son una forma pre-procesada de obtener información del store rápidamente(custom selectors??)
+
+NOTA:en el momento en que necesite trabajar con VueX en una aplicación debo trabajar en base a módulos(extrapolable a React o Angular)
+
+Esta sección esta dedicada a tener una introducción a Vuex, como gestor de estado global de nuestra aplicación, puntualmente veremos:
+
+1- ¿Qué es Vuex?
+2- ¿Qué problema resuelve Vuex?
+3- Actions
+4- Getters
+5- Mutations
+6- State
+7- Módulos
+8- Segmentación
+9- Vuex DevTools
+
+      VIDEO 140 INTRODUCCION A VUEX
+
+

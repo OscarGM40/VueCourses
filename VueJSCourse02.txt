@@ -1176,4 +1176,213 @@ Muy interesante este video
 
       VIDEO 131 MULTIPLES ROUTER-VIEW => RUTAS HIJAS
 
-Usar rutas hijas permite tener una aplicación con diseños estructurales totalmente diferentes entre pantallas.
+Usar rutas hijas permite tener una aplicación con diseños estructurales totalmente diferentes entre pantallas.La idea es crear layouts(un componente que internamente tiene otro router).Basicamente,son routers anidados.Vue hace muy sencillo esto.
+
+NOTA:fijate que ya tengo un router general en App.vue:
+<template>
+  <Navbar />
+  <img alt="Vue logo" src="./assets/logo.png" />
+  <router-view></router-view>
+</template>
+
+Es decir,que tendré que usar otro router-view en cada ruta que vaya a tener subrutas.
+TIP: un router-view lo que esta diciendo es que ese componente puede tener rutas hijas,y también dice donde debe renderizarlas.Ejemplo:
+La ruta principal /pokemon devuelve esta template:
+<template>
+  <div class="pokemon-layout">
+    <h1>Pokemon Layout</h1>
+    <router-view></router-view>
+  </div>
+</template>
+
+Es en ese router-view donde se renderizarán las posibles subrutas de /pokemon.Bien,y para declarar rutas hijas es tán fácil como usar la propiedad children:
+
+const mainRoutes: [
+{
+    path: "/pokemon", <- ruta principal
+    name: "pokemon",
+    component: () => import(/*webpackChunkName: "PokemonLayout"*/ "./../modules/pokemon/layouts/PokemonLayout"),
+    children: [
+      {
+        path: "home", <- ruta hija( será pues /pokemon/home)
+        name: "home",
+        component: () => import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+      },
+      {
+        path: "about",
+        name: "about",
+        component: () => import(/*webpackChunkName: "AboutPageChunk"*/ "./../modules/pokemon/pages/AboutPage"),
+      },
+      {
+        path:'',
+        redirect: {name:'home'}
+      }
+
+Ojo en las rutas hijas que no llevan el '/' inicial o se convierten en rutas absolutas.Por último,se recomienda redireccionar mediante el name de nuevo por la volatilidad de los path
+
+    VIDEO 132 SEGUNDO LAYOUT
+
+Creamos en el otro modulo que teniamos un layout con un router-view y dos componentes.Fijate que en este punto dondé estén fisicamente los archivos es irrelevante(excepto por los imports,claro),lo único que importa es la configuración en la programación:
+ 
+  {
+    path: "/dbz",
+    name: "dbz",
+    component: () =>
+      import(
+        /*webpackChunkName: "DBZLayout"*/ "./../modules/dragonball/layouts/DragonBallLayout"
+      ),
+    children: [
+      {
+        path: "characters",
+        name: "dbz-characters",
+        component: () =>
+          import(
+            /*webpackChunkName: "DBZCharacters"*/ "./../modules/dragonball/pages/Characters"
+          ),
+      },
+      {
+        path: "about",
+        name: "dbz-about",
+        component: () =>
+          import(/*webpackChunkName: "DBZAbout"*/ "./../modules/dragonball/pages/About"),
+      },
+      {
+        path: "",
+        redirect: { name: "dbz-characters" },
+      },
+    ],
+  },
+
+    VIDEO 133 ARREGLAR LA NAVBAR
+
+TIP:fijate que el link.to coincide y las rutas se ponen activas,cambiando la clase
+En este video vamos a hacer un refactor para coger las rutas por name(fijate que al final salen varios warnings porque el customLink trata de leer el params.id de cualquier ruta.Hay que cambiar esto también )
+
+<script>
+import { defineAsyncComponent } from "vue";
+export default {
+  data(){
+    return {
+      links:[
+        { to: 'pokemon-home',name:'Pokemons' },
+        { to: 'pokemon-id',name:'Por ID',id: 1 },
+        { to: 'pokemon-about',name:'About' },
+
+        { to: 'dbz-characters',name:'Personajes DBZ' },
+        { to: 'dbz-about',name:'DBZ About' },
+
+        { to: 'https://google.com',name:'Google' },
+        ]
+    }
+  },
+  components: {
+    CustomLink: defineAsyncComponent(() => import("./CustomLink.vue")),
+  },
+};
+
+En el CustomLink no podemos devolver lo mismo en el v-bind:to del v-else:
+
+ route() {
+      return this.link.id === undefined
+        ? { name: this.link.to }
+        : { name: this.link.to, params: { id: this.link.id } };
+    },
+
+En la template:
+  <router-link
+    v-else
+    :to="route"
+    v-slot="{ isActive }"
+  >
+Con este :to con la propiedad computada resolvemos el acceso condicional a params.id segun ruta,quitando el warning.
+
+
+      VIDEO 134 GUARDS EN VUE - PROTECCION DE RUTAS
+
+Hay otro punto importantisimo que es la protección de rutas.Usualmente el guard más comun es estar autenticado o no,pero de momento vamos a crear un guard que nos deje entrar de manera aleatoria simplemente.
+
+Empecemos también con un guard global(se ejecutará en cualquier ruta).Para ello simplemente usamos el método beforeEach en el objeto router:
+
+export const router = createRouter({
+  history: createWebHashHistory(),
+  routes: routes,
+});
+// Guard Global sincrono
+router.beforeEach((to,from,next) => {
+  console.log(to,from,next)
+})
+export default router
+
+Obviamente to es hacia donde se va y from de donde se viene.La funcion next es algo que puedo llamar como última acción().Fijate aqui que si no llamo a next() no hago la redirección normal,es el bloqueo de toda la vida(es decir,que implementar un guard sin el next va a bloquear el enrutamiento)
+Obviamente ya solo sería llamar a next según lo que queramos:
+router.beforeEach((to, from, next) => {
+  console.log({ to }, { from }, { next });
+  const rnd = Math.random().toFixed(2) * 100;
+  if(rnd > 50){
+    console.log('autenticado');
+    next()
+  }else {
+    console.log(rnd,'bloqueado por el beforeEach Guard')
+    next({name:'pokemon-home'})
+  }
+});
+
+TIP: fijate que el next tiene hast 5 signatures y me permite llamarlo redireccionando.
+TIP: al final lo que haremos es sacar esta función al típico folders de guards
+
+    VIDEO 135 GUARD ASINCRONO
+
+Hagamos lo mismo,pero asincrono.Realmente solo hay que poner el async y crear una Promise:
+
+const canAccess = () => {
+  return new Promise((resolve, reject) => {
+    const rnd = Math.random().toFixed(2) * 100;
+    if (rnd > 50) {
+      console.log("autenticado mediante async canAccess");
+      resolve(true);
+    } else {
+      console.log(rnd, "bloqueado por el beforeEach Guard");
+      resolve(false);
+      // next({name:'pokemon-home'})
+    }
+  });
+};
+// GUARD GLOBAL ASINCRONO
+router.beforeEach(async (to, from, next) => {
+  const authorized = await canAccess();
+  authorized ? next() : next({ name: "pokemon-home" });
+});
+
+Obviamente,un guard global no se usa mucho,normalmente hay mezcla de rutas publicas y privadas o incluso si no lo hubiera habra privadas segun rol,etc.
+Casi siempre vamos a usar guard especificos para una ruta/conjunto de rutas
+
+      VIDEO 136 GUARD ESPECIFICO PARA UNA RUTA O CONJUNTO DE RUTAS
+
+Para crear un guard solo para un determinado grupo de rutas o inclusive una única ruta Vue(más concretamente el router de Vue) nos proporciona esta nueva propiedad beforeEnter,la cual permite declarar un arreglo de Guards:
+
+  // child router Two
+  {
+    path: "/dbz",
+    name: "dbz",
+    beforeEnter: [isAuthenticatedGuard],
+    component: () =>
+
+Obviamente es una vil copia del canAccess de Angular,bla bla bla.
+NOTA: fijate que poner el Guard en la ruta padre propagará ese Guard a las hijas,no pudiendo entrar a ninguna que empieze por /dbz => (/dbz/**/*)
+
+* Ese Guard lo meto en el folder guards,etc(es un simple js)
+const isAuthenticatedGuard = async (to, from, next) => {
+  return new Promise(() => {
+    const random = Math.random().toFixed(2) * 100;
+    if (random > 50) {
+      console.log("autenticado mediante guard de ruta");
+      next();
+    } else {
+      console.log(random, "no autenticao,bacalao");
+      next({ name: "pokemon-home" });
+    }
+  });
+};
+
+Fijate que no tuve que pasarle ni resolve ni reject al new Promise.
+
