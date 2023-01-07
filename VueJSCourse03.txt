@@ -25,4 +25,463 @@ Esta sección esta dedicada a tener una introducción a Vuex, como gestor de est
 
       VIDEO 140 INTRODUCCION A VUEX
 
+La idea de VueX es crear un store,para que cualquier componente pueda consumirlo y/o actualizarlo.Esto reduce mucho la complejidad que si fuera todo por props,etc.Recuerda que el state de ese store es totalmente reactivo,cualquier cambio en él disparará cambios en las vies
+El flujo de información es igual que en Redux,Flux o la arquitectura Elm(en resumen, cualquier gestor de estado),donde las acciones notifican al estado,el cual notifica a la vista.
+VueX está diseñado especificamente para trabajar con Vue.Las vistas harán dispatch de una acción,esa acción hace el commit de una mutation.Las mutaciones son sincronas(no pueden ser asincronas).Se llaman asi porque es codigo que al final va a terminar mutando nuestro state.
+No necesariamente hay que pasar por una accion para disparar una mutation.Se puede llamar al commit directamente desde una view.
+Como el state es reactivo,cualquier view que consuma ese state será actualizado.
+NOTA:las acciones pueden ser tanto asincronas como sincronas,luego siempre tendré que usar una acción cuando haya asincronia.Las mutaciones solo pueden ser síncronas.
+Una acción tampoco puede modificar directamente el state,siempre debe pasar por el commit de una mutación.
+
+Conceptos generales:
+
+State: similar a la data(),es reactivo
+Getters: similares a las propiedades computadas
+Mutations: funciones que pueden modificar el state(no tienen porque modificarlo)
+Actions: funciones que pueden ser asíncronas y pueden llamar a mutations(ojo con ambos pueden)
+Modules: basicamente es un agrupador en el que puedo tener state,getters,mutations,actions e incluso otros modules(entiendo que es un slice del store)
+Un store es basicamente un agrupador de modulos,pues.
+
+Debo usar VueX cuando la app sea minimamente compleja y lo necesite.No es nada dificil de implementar.
+
+VIDEO 142 INSTALACION MANUAL DE VUEX
+
+NOTA: VueX 4 en adelante da soporte tanto a la Options API como a la compositions API.Fernando provee el siguiente enlace con la docu:
+https://vuex.vuejs.org/installation.html#direct-download-cdn
+
+Alli puedo ver que puedo incluso usar una CDN,pero lo haremos con yarn:
+npm install vuex@next --save <- puedo ver que me instaló  "vuex": "^4.0.2" 
+
+Una vez instalada la lib puedo seguir por aqui:
+https://vuex.vuejs.org/guide/
+
+TIP: recuerda que un store es un contenedor para el state de la aplicación.Recuerda que el state es un simple mega-objeto,pero que es reactivo y al que no se le puede mutar directamente,hay que usar comitted mutations.Creamos un store supersimple de momento:
+
+En /src/store/index.js:
+
+import { createStore } from 'vuex' 
+const store = createStore({
+  // estado inicial
+  state:{
+    count : 1
+  }
+})
+
+export default store;
+
+El main.js lo tiene que consumir con .use(slice):
+En el main.js:
+import store from './store';
+
+createApp(App)
+  .use(store)
+  .mount('#app');
+
+Si ahora voy a las devTools debería ver ese state con el counter.
+
+            VIDEO 143 LEER EL STATE REACTIVO
+
+
+De nuevo y por última vez recuerda que el state es un objeto reactivo,cualquier cambio en él va a notificar a cualquier vista que lo consuma
+
+Fijate que puedo acceder directamente al store con $store(aqui si me parece que gana a React en accesibilidad al state)
+<template >
+  <h1>Counter - Vuex </h1>
+  <h2>Direct access: {{ $store.state.count }}</h2>
+</template>
+
+Incluso desde Javascript:
+<template>
+  <h1>Counter - Vuex</h1>
+  <h2>Direct access: {{ $store.state.count }}</h2>
+  <h2>Computed {{ countComputed }}</h2>
+  <h2>ShitComputed {{ anotherShitComputed }}</h2>
+</template>
+
+<script>
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+  },
+};
+</script>
+
+Sin embargo,no es lo normal acceder tan directamente al state.Lo normal es usar un mapeo previo del que sacamos lo que necesitemos:
+
+<script>
+import { mapState } from "vuex";
+
+console.log(mapState(["count",'lastMutation']));
+
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState(["count"]),
+  },
+};
+</script>
+
+Para ello vuex me ofrece los métodos mapState ó mapMutations ó mapActions,etc y no tener que usar $store.state.XXX.
+NOTA: hay varias maneras de acceder a una propiedad del state:
+1 => con mapState(['propName1','propName2'])
+2 => con mapState({counter: state => state.count }) <- útil para renombrar una prop del state
+
+
+Obviamente puedo sacar las que quiera:
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.count,
+      lastMutation: state => state.lastMutation
+    }),
+  },
+};
+
+                  VIDEO 144 MUTATIONS
+
+Recuerda que el state en producción no puedo cambiarlo desde las devTools,solo en desarrollo.Pero aunque podemos hacerlo desde las devTools realmente se hace desde código,commiteando una mutation.
+
+Para crear una mutation es igual que si fuera methods o computed en un componente,pero en el createStore:
+const store = createStore({
+  // estado inicial
+  state:{
+    count : 1,
+    lastMutation: 'none'
+  },
+  mutations:{
+    increment(state){
+      state.count++;
+      state.lastMutation = 'increment'
+    }
+  }
+})
+Fijate que las mutations no tienen acceso por defecto al state y lo tengo que pasar como argumento en cada mutation.
+
+Recuerda también que no puedo mutar el state,y que las mutations se commiteaban luego tengo que acceder desde una vista con this.$store.commit('name of the mutation declared'):
+
+  methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    }
+  },
+Y si necesitara argumentos desde el commit hay que mandarlos(obviamente los recibo como segundo argumento):
+En el store:
+ mutations: {
+    increment(state) {
+      state.count++;
+      state.lastMutation = "increment";
+    },
+    incrementBy(state,value) {
+      state.count += value;
+      state.lastMutation = "incrementBy";
+    },
+  },
+
+  Y desde la view:
+   incrementBy(){
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+
+VIDEO 145 ACTIONS
+
+Al igual que tengo el state y las mutations en el createStore tengo la propiedad actions.Usualmente las actions son asincronas,por ejemplo comprobar algo con una peticion http y ya despues se hace el commit de una mutation(con lo que parece que la asincronia serán dos funciones en Vue ??)
+
+async function getRandomInt(){
+ return await new Promise( resolve => { <- recuerda que el return ya es asincrono,me hace de await tmb
+    const rndInt = Math.random().toFixed(2)*100;
+    setTimeout(() => resolve(rndInt), 1000);
+    
+  })
+}
+
+Bien,ahora tiene que quedar claro que las acciones no pueden mutar el state,y por ello no necesitan acceder a él.Si quisieran mutarlo tienen que hacerlo mediante una mutation,y por ello si tienen acceso al contexto,que es el module actual o el propio store,si no hubiera modulos:
+
+ actions: {
+    // en el caso de una acción lo que recibe como primer argumento es un context,y no un state.El context tiene la referencia sobre el store(o módulo en el que me encontrara,en este caso es el store ya que no hay slices)
+    async incrementRandomInt(context){
+      // recuerda que una acción no puede mutar el state,eso solo lo puede hacer una mutation
+      // state.loading = true <- no se puede con una action
+
+      // DESDE UNA ACTION TENGO QUE USAR EL CONTEXT PARA ACCEDER A UNA MUTATION QUE CAMBIE EL STATE
+      context.commit('changeLoading',true)
+      const randomInt = await getRandomInt()
+      context.commit('incrementBy',randomInt)
+      context.commit('changeLoading',false)
+      
+    }
+  }
+
+  Y para llamar desde la view a una action de momento lo podemos hacer mediante this.$store.dispatch('action name',args?).-Fijate que las acciones se disparan y las mutations se commitean.
+  <button @click="incrementRandomInt">Random</button>
+
+    incrementRandomInt(){
+      this.$store.dispatch('incrementRandomInt')
+    }
+
+TIP:fijate que llamar a una función para que llame al dispatch realmente podría llamar al dispatch directamente desde la template.Veremos como hacerlo en breve
+
+            VIDEO 146 MAP ACTIONS
+
+Actually it doesn't have any sense having a method that inmediately returns another.Podemos usar el método mapActions de manera similar al mapState(aunque uno va en los methods y otro en las computed props):
+
+import { mapState, mapActions } from "vuex";
+
+export default {
+  methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    },
+    incrementBy(){
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+    ...mapActions(['incrementRandomInt'])
+  },
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.count,
+      lastMutation: state => state.lastMutation
+    }),
+  },
+
+NOTA: también puedo usar esta forma para renombrar(de echo tengo que usarla para las actions):
+ ...mapActions({
+      randomInt: 'incrementRandomInt'
+    })
+en el mapState puedo hacer algo similar(aqui si tengo dos opciones):
+...mapState({
+  counter: 'counter' 
+})      
+
+IMPORTANTE: también de manera similar al mapState,cada action que me traiga la puedo usar en cualquier parte de ese componente ya:
+ methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    },
+    incrementBy(){
+      this.randomInt() <- LA PUEDO USAR AQUI PUES YA TENGO VISION SOBRE ESA ACCION DESDE QUE LA TRAJE CON EL MAPACTIONS
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+    ...mapActions({randomInt: 'incrementRandomInt'})
+
+        VIDEO 147 BLOQUEAR BOTON MIENTRAS UNA ACCIÓN TRABAJA
+
+Tarea muy sencilla,crear una propiedad isLoading y en la action llamar a una mutation que la cambie,despues sacarla con el mapState y usarla en el disabled con un v-bind:
+
+ async incrementRandomInt({commit}) {  // mejor desestructurar el context,asinto
+      // DESDE UNA ACTION TENGO QUE USAR EL CONTEXT PARA ACCEDER A UNA MUTATION QUE CAMBIE EL STATE
+      commit("setLoading", true);
+      const randomInt = await getRandomInt();
+      commit("incrementBy", randomInt);
+      commit("setLoading", false);
+    }
+
+En la template acceder al state
+<button @click="randomInt" :disabled="isLoading">Random</button>
+
+        VIDEO 148  GETTERS
+
+Ya hemos visto en el método createStore las propiedades state(para definir el state),mutations(para mutarlo sincronamente) y las actions(para poder usar asincronia,recuerda que tienen acceso al context y pueden commitear mutations si es necesario).Vamos a ver otra propiedad más,los getters.
+
+Los getters pueden ser llamados en cualquier parte de la aplicación,son muy parecidos a una computed property(diria que son como un acceso rápido a una parte del state/módulo),lo cual muchas veces puede ser más eficiente que traer todo el slice concreto:
+
+  actions: {
+    async incrementRandomInt({commit}) {  // mejor desestructurar el context,asinto
+      commit("setLoading", true);
+      const randomInt = await getRandomInt();
+      commit("incrementBy", randomInt);
+      commit("setLoading", false);
+    },
+  },
+  getters:{
+    squareCount(state){
+      return state.count * state.count
+    }
+Fijate que tienen acceso al state,por motivos obvios,ya que son un acceso rápido al mismo(incluso pueden valer para hacer alguna operación sencilla)
+NOTA:obviamente este getter se va a actualizar cuando cambie a lo que apunta(en este caso state.count) ya que son totalmente reactivos.
+
+Para acceder desde la template Vuex nos ofrece el mapGetters,aunque también podemos acceder mediante $store.getters:
+ <h2>Direct getter:{{ $store.getters.squareCount}} </h2>
+
+      VIDEO 149 MODULES - INTRO
+
+Casi nunca voy a usar un único estado.Normalmente será una unión de varios slices lo que conformará el store.No tiene sentido tener un único store asi:
+state :{
+  counter,
+  products: [],
+  selectedProduct:{},
+  auth:{name: 'Fernando},
+  isLoading:false
+} 
+Hay demasiada mezcla de conceptos/lógica de negocio.La idea es separar en módulos el state de la app según agrupaciones lógicas.
+
+const store = createStore({
+  modules: {
+    account: {
+      namespaced: true,
+      state: () => ({ ... }), // recuerda que state necesita ser reactivo y tiene que ser una callback su valor(parece que debe ir debajo de namespaced: true también)
+      getters: {
+        isAdmin () { ... } // -> getters['account/isAdmin']
+      },
+      actions: {
+        login () { ... } // -> dispatch('account/login')
+      },
+      mutations: {
+        login () { ... } // -> commit('account/login')
+      },
+
+Recuerda que usar namespaced a true es casi una obligación(y que y).Poner namespaced a true encapsulará ese módulo.
+
+Fijate también que por defecto las actions,los getters y mutations son registradas bajo el namespace global pero ahora ya no funcionan.Lo arreglaremos en el siguiente video
+
+VIDEO 150 ACTIONS-GETTERS-MUTATIONS-STATE ACCESO DESDE UN MODULO
+
+Simplemente tenemos que ajustar las rutas,ya que hemos creado una abstracción.
+
+UNO: para el acceso directo al state tengo que usar $store.state.<modulo>.count:
+* Luego tengo que cambiar cualquier $store.state
+ <h2>Direct access: {{ $store.state.counter.count }}</h2>
+
+ DOS: lo mismo para cualquier otra zona,como la computed:
+
+ computed: {
+    countComputed() {
+      return this.$store.state.counter.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.counter.count,
+      lastMutation: state => state.counter.lastMutation,
+      isLoading: state => state.counter.isLoading
+    }),
+  },
+
+TRES: para las mutations hay que anteponer el modulo:
+  methods:{
+    increment(){
+      // ojo es 'modulo/mutation
+      this.$store.commit('counter/increment'); 
+    },
+    incrementBy(){
+      this.$store.commit('counter/incrementBy',5); 
+    },
+
+CUATRO: lo mismo para las actions:
+  ...mapActions({
+      randomInt: 'counter/incrementRandomInt'
+    })
+
+Fijate que si usará la forma con el array ahora tendrá dos argumentos,el primero es el modulo:
+mapActions('counter',['incrementRandomInt'])
+Dependerá de la sintaxis
+
+Lo mismo con el mapState si hubiera usado la notación con el array:
+mapState('counter',['counter','lastMutation','isLoading])
+
+Fijate que en este punto queda bien claro que es mucho más sencillo usar mapState o mapActions con arrays al trabajar con módulos,solo hay que poner un argumento.Es decir,no usar esto:
+    
+    ...mapState({
+      counter: state => state.counter.count,
+      lastMutation: state => state.counter.lastMutation,
+      isLoading: state => state.counter.isLoading
+    }),
+
+QUINTO: el acceso directo al getter también cambia e inclusive hay que usar otra sintaxis:
+ <h2>Direct getter:{{ $store.getters['counter/squareCount']}} </h2>
+
+        VIDEO 151 SEPARAR UN MÓDULO EN ARCHIVOS INDEPENDIENTES
+
+Queremos separar el state,las acciones,las mutaciones,los getters de nuestro módulo cada una a un archivo independiente.Creamos pues un archivo para cada prop en esa carpeta.
+
+En el state.js exporto la funcion que hacia el state reactivo:
+export default () => ({
+    count: 1,
+    lastMutation: "none",
+    isLoading: false,
+    lastRandomInt: 0,
+  });
+
+En el mutations.js ahora tendré que exportara cada función(además ahora son funciones,antes eran métodos):
+export function increment(state) {
+  state.count++;
+  state.lastMutation = "increment";
+}
+export function incrementBy(state, value) {
+  state.count += value;
+  state.lastMutation = "incrementBy";
+  state.lastRandomInt = value;
+}
+export function setLoading(state, value) {
+  state.isLoading = value;
+  state.lastMutation = "setLoading";
+}
+
+Lo mismo paa las acciones:
+En el actions.js:
+import getRandomInt from "@/helpers/getRandomInt";
+
+export async function incrementRandomInt({ commit }) {
+  commit("setLoading", true);
+  const randomInt = await getRandomInt();
+  commit("incrementBy", randomInt);
+  commit("setLoading", false);
+}
+
+IMPORTANTE: estos archivos que exportan funciones tienen que exportar cada una por separado,y por ello puedo importarlas despues con *:
+import * as mutations from "./mutations";
+y despues pasarlas asi:
+mutations:mutations  <- lo cual se puede resumir desde ECMA2016
+
+Lo mismo para los getters.Al final me quedará algo asi:
+
+const counterStore = {
+  namespaced:true,
+  state,
+  mutations,
+  actions,
+  getters
+}
+export default counterStore;
+
+Desde luego queda muy limpio.Teniendo en cuenta que no siempre tendré los getters puede ser interesante perder cohesión ya que ganar esta modularidad parece buen intercambio
+Obviamente queda mucho más fácil dar mantenimiento a cada una de estas piezas,o escalar funcionalidad,etc.
+
+      SECCION 11 JOURNAL APP - OPTIONS API + VUEX
+
+Vamos a crear una app que maneje la entrada de registros a un diario.Usaremos getters con funciones.Crearemos tokens,peticiones HTTP,el backend,etc.Serán varias secciones.
+
+En esta sección crearemos y configuraremos una aplicación para llevar registro de un diario, todo trabajado con OptionsAPI y Vuex, puntualmente haremos lo siguiente:
+
+1- Configuración de módulos en Vuex
+2- Configurar un backend para realizar peticiones http
+3- Getters con argumentos
+4- Controlar el state global y modular
+5- Diferentes rutas principales y rutas hijas
+6- Rutas con diferentes templates o plantillas
+Y más
+
+En esta sección aún no haremos nuestro CRUD, pero lo dejaremos todo preparado para la siguiente, pero todo lo que veremos aquí será de mucha utilidad para ustedes
 
