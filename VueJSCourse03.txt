@@ -485,3 +485,101 @@ Y más
 
 En esta sección aún no haremos nuestro CRUD, pero lo dejaremos todo preparado para la siguiente, pero todo lo que veremos aquí será de mucha utilidad para ustedes
 
+        VIDEO 155 -156 -157 INICIO PROYECTO - CONFIGURAR BOOTSTRAP -AÑADIR SASS
+
+Docu: https://getbootstrap.com/
+
+Creamos una nueva app con 'vue create <app-name>'.Elegimos el router y el linter,aparte de babel.
+Fijate que FH nos muestra un ejemplo en el que se trae Bootstrap mediante un CDN,pero al hacerlo asi no podemos modificar el SASS(no pudiendo sobreescribir ningun color,etc).Al instalarlo podemos sobreescribir la configuración por defecto(fijate que con una CDN no podria hacer nada más que tener el bootstrap por defecto)
+>yarn addd bootstrap
+
+Aun falta importar la libreria(fijate que vamos a crear un styles/styles.scss con el siguiente import):
+@import 'node_modules/bootstrap/scss/bootstrap.scss';
+
+Ya en el main.js importamos ese archivo
+
+import "./styles/styles.scss";
+createApp(App).use(router).mount("#app");
+
+Pero fijate que nos pide sass-loader(aparte del core sass).No tiene sentido que no sean para desarrollo only:
+>yarn add -D sass-loader@10 sass
+
+Esta es la forma a proceder cuando quiero personalizar Bootstrap más allá de su configuración por defecto.
+
+Para cambiar los colores antes del import(tiene que ser antes) puede remapear los valores de la variable $theme-colors:
+$theme-colors: (
+  "primary": #2c3e50,
+  "secondary": #1d6042,
+  "success": #198754,
+  "info": #0dcaf0,
+  "warning": #ffc107,
+  "danger": #dc3545,
+  "light": #f8f9fa,
+  "dark": #343a40,
+);
+@import "node_modules/bootstrap/scss/bootstrap.scss";
+
+      VIDEO 158 ESTRUCTURA MODULAR
+
+En cualquier aplicación mediana o grande la estructura de tener todo colgando de src se queda un poco pequeña(estructura de directorios).Podria terminar con decenas o cientos de componentes en el directorio componentes(que además no tendrán relación de negocio entre muchos de ellos).En este tipo de aplicaciones hay que seguir una estructura modular.
+Tener una estructura modular incluso me podria valer para importar modulos a otros proyectos.Obviamente,es la estructura a seguir(debo tratar de implementarla siempre)
+Para implementar este tipo de estructura simplemente creo la carpeta modules colgando de src(src/modules).Despues de momento creamos dos modulos auth y daybook(src/modules/auth y src/modules/daybook).Dentro de cada uno ya puedo crear sus componentes,rutas,views,layouts,api,helpers,etc.
+
+Bien,implementemos las rutas hijas,va a ser muy fácil.Dado que una ruta padre con hijas luciría asi:
+ {
+    path: '/',
+    name: 'home',
+    component: HomeView, <- o lo traigo asi o con lazyLoad,pero viene un Componente
+    children:[]
+  },
+lo que vamos a hacer es definir en el router/index.js padre solo la propiedad path y el resto en cada router/index.js de cada modulo:
+
+En el mainRouter:
+
+import dayBookRoutes from '../modules/daybook/router'
+   ...rutas principales....
+  {
+    path: '/daybook',
+    ...dayBookRoutes <- spread de la export default
+  }
+  En el archivo de rutas de cada modulo(en el que quiera,claro):
+
+  export default {
+  name: "daybook",
+  component: () => import(/* webpackChunkName: "daybook" */ "@/modules/daybook/layouts/DayBookLayout.vue"),
+  children: [],
+};
+Faltaría el <router-view> para las rutas hijas
+
+    VIDEO 159 ESTRUCTURA DEL DAYBOOK LAYOUT
+
+Maquetación pura y dura.Fijate donde vamos a renderizar las rutas hijas( en la col de 8 restante):
+
+En el DaybookLayout.vue:
+<template>
+  <Navbar />
+  <div class="d-flex">
+    <div class="col-4">
+      <EntryList />
+    </div>
+    <div class="col">
+      <router-view></router-view>
+    </div>
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+
+export default {
+  components: {
+    Navbar: defineAsyncComponent(() => import("../components/Navbar.vue")),
+    EntryList: defineAsyncComponent(() => import("../components/EntryList.vue")),
+  },
+};
+El EntryList será la lista de entradas(una entrada será el cmp Entry)
+Recuerda agregar a las rules "vue/multi-word-component-names": "off" si sale el error de multi-word needed
+  
+      VIDEO 160 COMPONENTES ENTRY-LIST Y ENTRY
+
+NOTA: fijate que cada <template></template> debe tener al menos una etiqueta,no puede haber componentes vacíos en Vue.

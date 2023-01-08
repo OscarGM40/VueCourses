@@ -760,7 +760,7 @@ import { router } from "./router/router";
 
 createApp(App).use(router).mount("#app");
 
-IMPORTANTISIMO: esto por si solo no hace nada,me falta el tipico <outlet /> que en Vue se llama <router-view />.De esta forma veré los componentes
+IMPORTANTISIMO: esto por si solo no hace nada,me falta el tipico <outlet /> de Angular o React  y que en Vue se llama <router-view />.De esta forma veré los componentes
 En donde quiera(en este ejemplo en el App.vue)
 <template>
   <img alt="Vue logo" src="./assets/logo.png" />
