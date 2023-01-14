@@ -1,5 +1,7 @@
 <template>
-  <div class="entry-container mb-3 pointer p-2">
+<!-- recuerda que en la template no necesito usar this.$router(aunque va a funcionar igual) -->
+<!-- para mandar params en el push era (this).$router.push({name:"",params:{param:value}}) -->
+  <div class="entry-container mb-3 pointer p-2" @click="this.$router.push({name:'entry',params:{id:1}})">
     <!--title  -->
     <div class="entry-title d-flex">
       <span class="text-success fs-5 fw-bold">15</span>

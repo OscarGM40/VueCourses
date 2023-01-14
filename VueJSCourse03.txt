@@ -583,3 +583,153 @@ Recuerda agregar a las rules "vue/multi-word-component-names": "off" si sale el 
       VIDEO 160 COMPONENTES ENTRY-LIST Y ENTRY
 
 NOTA: fijate que cada <template></template> debe tener al menos una etiqueta,no puede haber componentes vacíos en Vue.
+El componente EntryList barre con un v-for la coleccion de items.También tiene un Input arriba,para buscar una entrada:
+<Entry v-for="entry in 10" :key="entry"></Entry> <- recuerda que estos prehistorics usan un for in y que en Vue no uso 'let index'.
+El componente EntryList es simplemente la entrada
+
+    VIDEO 161 COMPONENTE FAB Y NO-ENTRY-SELECTED
+
+Creamos un boton y lo ponemos con position fixed a la dcha y abajo.El No entry es para cuando no haya una entrada seleccionada.Creamos su ruta.
+
+    VIDEO 162 ENTRYVIEW
+
+Creamos la View y su ruta(es daybook/:id).Seguir la maquetación.
+
+    VIDEO 163 TAREA CREAR PROP ICON PARA EL FAB
+
+Este video es interesante,ya que mediante la prop vamos a mostrar una clase u otra.Yo usé una propiedad computada para gestionar toda la clase,pero hay más formas:
+
+ <button class="btn btn-primary">
+    <i :class="parseClass"></i>
+  </button>
+</template>
+
+<script>
+
+export default {
+  props:{
+    icon:{
+      type: String,
+      default: "fa-plus"
+    }
+  },
+  computed:{
+    parseClass(){
+      return "fa fa-2x " + this.icon
+    }
+  }  
+}
+
+Otra forma muy interesante es dejar con el atributo 'class' lo que sea común y despues usar un v-bind con :class.Vue va a juntar todo en la misma clase.De estar forma me quitaba de usar una computed property:
+
+ <button class="btn btn-primary">
+    <i 
+      class="fa fa-2x"
+      :class="icon"></i>
+  </button>
+</template>
+
+<script>
+
+export default {
+  props:{
+    icon:{
+      type: String,
+      default: "fa-plus"
+    }
+  }
+}
+
+Ojo,solo puede haber un v-bind a class por elemento.Interesante.
+
+    VIDEO 164 INSTALAR VUEX + MODULO REUTILIZABLE
+
+Usualmente usare Vuex(el store) en base a módulos.Lo primero es instalar la libreria:
+>yarn add vuex@next -S
+
+Ahora si,creamos una carpeta store(src/store) para el store global de la aplicación(por ejemplo ui,providers globales,etc).Despues creo otra carpeta store por cada modulo(src/auth/store y src/daybook/store).Cada uno de ellos tendrá el store de ese modulo 
+NOTA: un módulo puede incluso a ser lo suficientemente grande como para crearle submodulos o varios stores.No es muy normal esto,realmente.
+
+En este punto vamos a crear un módulo cascarón reutilizable.En este modulo/carpeta creo 5 files,el actions.js para las acciones asincronas,el mutations.js,el getters.js y el state.js.En el quinto file index.js lo usamos como barrel file y para juntar todo:
+
+En el index.js:
+import state from './state';
+import * as actions from './actions';
+import * as getters from './getters';
+import * as mutations from './mutations';
+
+const myCustomModule = {
+  namespaced:true,
+  actions,
+  getters,
+  mutations,
+  state
+}
+
+export default myCustomModule;
+
+Este modulo simplemente tendría que cambiar el naming de funciones,etc según modulo a aplicar.Es algo que haremos ya.
+
+  VIDEO 165 MODULO VUEX-MODULE  USANDO MODULO REUTILIZABLE
+
+ Recuerda que vamos a usar stores modularizados.Esto cambia un poquito de usar uno solo,ya que tengo que usar una propiedad modules en el createStore:
+
+ en el src/store/index.js (me traigo todos los stores por modulo)
+ const store = createStore({
+  modules: {
+    a: moduleA,
+    b:moduleB
+  }
+ })
+ 
+ * Obviamente este store es el que le paso al main.js(actually we can only use one store,obviously).
+ app.use(store).use(xxx)
+
+ Y cada moduleA será el exp default de cada store/{module}/index.js.Muy interesante,asinto
+
+En nuestra app el src/store/index.js quedaría asi:
+import journalModule from '../modules/daybook/store/journal';
+
+const store = createStore({
+modules:{
+  journal: journalModule
+}
+})
+
+export default store
+
+TIP: el store tendrá que ir antes de las rutas,logicamente
+createApp(App).use(store).use(router).mount("#app");
+Desde luego es muy fácil crear un Store modularizado en Vue.Muy interesante la estructura que usó Fernando.
+
+Por último nos creamos ya varias acciones,getters y mutations.Recuerda que las acciones serán acciones asincronas que tendrán impacto en la base de datos,los getters son acciones sincronas para acceder a una parte del store(por ejemplo acceder con una ordenación,con un filtro,etc) y que las mutations son acciones sincronas que acompañaran a las actions
+
+      VIDEO 166 ENTRADAS FICTICIAS Y PUNTO DE RESTAURACIÓN
+
+En el archivo con el state inicial del modulo journal creamos unos valores por defecto:
+
+* En el src/modules/daybook/store/state.js *
+export default () => ({
+  isLoading: true,
+  entries: [
+    {
+      id: new Date().getTime(), // timestamp numérico
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolores voluptate minima commodi tenetur adipisci minus iste. Blanditiis nulla sunt aut recusandae, rem quis asperiores incidunt ad at eligendi possimus! Corrupti?",
+      picture: null,
+    },
+    {
+      id: new Date().getTime() + 1000, // timestamp numérico incrementado por si acaso
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Tempore nemo illo temporibus dignissimos optio. Eum culpa, saepe fugit odit deleniti eveniet perferendis velit? Cumque deleniti enim modi! Nisi, ratione nobis." ,
+      picture: null,
+    },
+    {
+      id: new Date().getTime() + 2000, // timestamp numérico incrementado por si acaso
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet, sfconsectetur adipisicing sfasfelit. Tempore nemo terribilis prehistorics dignissimos optio. Eum culpa, saepe fugit odit deleniti eveniet perferendis velit? Cumque deleniti enim modi! Nisi, ratione nobis." ,
+      picture: null,
+    },
+  ],
+});
+
