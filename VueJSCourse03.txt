@@ -733,3 +733,147 @@ export default () => ({
   ],
 });
 
+VIDEO 167 MAPGETTERS - USING GETENTRIESBYTERM
+
+Tarea: usar un getter en la aplicación,pero usando mapGetters:
+
+** Fijate que podria haber usado el acceso directo:
+  <!-- <Entry v-for="entry in $store.getters['journal/getEntriesByTerm']" :key="entry" /> -->
+* Pero no decia eso la tarea(fijate que el v-for ya está interpretando javascript,no tiene sentido usar llaves para la computed)  
+      <Entry v-for="entry in entries" :key="entry" />
+    </div>
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+import { mapGetters } from "vuex";
+export default {
+  components: {
+    Entry: defineAsyncComponent(() => import("./Entry.vue")),
+  },
+  computed: {
+    ...mapGetters({
+      entries: 'journal/getEntriesByTerm',
+    }),
+  },
+};
+
+Ojo,el mapGetters tiene muchas firmas,FH ha usado otra pasandole el modulo como primer arg y los getters:
+computed:{
+  ...mapGetters('journal',['getEntriesByTerm'])
+}
+NOTA:esto ya crea una propiedad computada con el nombre 'getEntriesByTerm'(es decir,con el nombre del getter)
+
+Lo siguiente va a ser crearnos un data-binding al input.ES super sencillo en Vue:
+En la template engancho el input a una prop
+<input v-model="term" />
+Y la creo en la data del componente(no confundir con las props)
+data(){
+  return {
+    term:""
+  }
+}
+Ya estoy capturando en this.term el input.Creamos otra computed(sobre la que al final iteraremos con el v-for):
+    entriesByTerm(){
+      return this.getEntriesByTerm(this.term)
+    }
+NOTA: para mandar argumentos a un getter vamos a usar una closure:
+
+export const getEntriesByTerm = (state) => (term = "") => { 
+  if(term.length === 0){
+    return state.entries;
+  }
+  return state.entries.filter(entry => entry.text.toLowerCase().includes(term.toLowerCase()));
+}
+
+      VIDEO 168 MANDAR LA ENTRY POR EL V-FOR
+
+Fijate que aún no hemos echo eso.Simplemente me creo un v-bind a una prop cualquiera que recibirá el Item:
+<Entry v-for="entry in entriesByTerm" :key="entry.id" :entry="entry" /> <- :entry por semantica
+
+Fijate que es una prop del componente Entry(y de tipo Object),luego 
+
+export default {
+  props:{
+    entry:{
+      type:Object
+      ...
+    }
+  }
+}
+
+Despues seguimos parseando la fecha a español.Fijate en como exporto por defecto una funcion flecha con argumentos:
+export default (args) => {}
+
+VIDEO 169 GET ENTRY BY ID GETTER
+
+Recuerda que Vue expone varios objetos,entre ellos el $route(no confundir con $router).Perfectamente puedo acceder al param del detalle de un daybook en el lifecycle:
+
+export default {
+  created(){
+    console.log( this.$route.params.id);
+  }
+};
+
+Sin embargo,es mejor práctica crear una prop required y mandarla mediante el router:
+  props: {
+    id: {
+      type: String,
+      required: true,
+    },
+  },
+Ahora en el router que redirije a ese componente creo una nueva propiedad llamada props que tendrá como valor una callback con la route como argumento:
+
+{
+  path:':id',
+  name:'entry',
+  component: import(...),
+  props:(route) => {
+    return {
+      id: route.params.id
+      }
+  } 
+}
+Recuerda que la funcion parece que funciona y es la UI.
+IMPORTANTE: recuerda romper la referencia en los getters para que no mute el state(wtf)
+export const getEntryById = (state) => (id) => {
+  const entry = state.entries.filter(e => e.id === id);
+  if(!entry) return; // fijate que return y return undefined es lo mismo
+  return {...entry}; <- ojo con devolver entry y operar sobre ella pues mutaría el state
+}
+
+En el componente tengo que tener en cuenta que el mapGetters parece que solo puedo llamarlo con la propiedad computed ya que desde methods no la veia,muy prehistoric aqui -_-
+
+<script>
+import {mapGetters} from 'vuex';
+export default {
+  props:{
+    id:{
+      type:String,
+      required:true
+    }
+  },
+  methods:{
+    loadEntry(){
+      return this.getEntryById(this.id);
+    }
+  },
+  computed:{
+    ...mapGetters('journal',['getEntryById']),
+  },
+  created(){
+    this.loadEntry()
+  }
+}
+</script>
+
+Fijate que traerla en computed ya la deja visible en todo el script.Interesting
+
+    VIDEO 170 MOSTRAR ENTRADA EN PANTALLA O REDIRECCIONAR AL USUARIO
+
+    Si no existe la entrada(recuerda que el getter ya me devuelve una Entry o undefined) queremos redireccionar al usuario.Si si existe mostraremos la Entry
+
+
+
+
