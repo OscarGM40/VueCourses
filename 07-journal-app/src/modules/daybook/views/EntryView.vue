@@ -1,36 +1,39 @@
 <template>
-  <div class="entry-title d-flex justify-content-between p-2">
-    <div class="">
-      <span class="text-success fs-3 fw-bold">{{ day }}</span>
-      <span class="mx-1 fs-3">{{ month }}</span>
-      <span class="mx-2 fs-4 fw-light">{{ yearDay }}</span>
+  <template v-if="entry">
+    <div class="entry-title d-flex justify-content-between p-2">
+      <div class="">
+        <span class="text-success fs-3 fw-bold">{{ day }}</span>
+        <span class="mx-1 fs-3">{{ month }}</span>
+        <span class="mx-2 fs-4 fw-light">{{ yearDay }}</span>
+      </div>
+      <!--  -->
+      <div>
+        <button class="btn btn-danger mx-2">
+          Borrar
+          <i class="fa fa-trash-alt"></i>
+        </button>
+        <button class="btn btn-primary">
+          Subir foto
+          <i class="fa fa-upload"></i>
+        </button>
+      </div>
     </div>
-    <!--  -->
-    <div>
-      <button class="btn btn-danger mx-2">
-        Borrar
-        <i class="fa fa-trash-alt"></i>
-      </button>
-      <button class="btn btn-primary">
-        Subir foto
-        <i class="fa fa-upload"></i>
-      </button>
+    <hr />
+    <div class="d-flex flex-column px-3 h-75">
+      <textarea v-model="entry.text" placeholder="¿Qué sucedió hoy?"></textarea>
     </div>
-  </div>
-  <hr />
-  <div class="d-flex flex-column px-3 h-75">
-    <textarea v-model="entry.text" placeholder="¿Qué sucedió hoy?"></textarea>
-  </div>
-  <Fab icon="fa-save" />
-  <img
-    class="img-thumbnail"
-    src="https://cdn.pixabay.com/photo/2023/01/02/04/13/dog-7691238_640.jpg"
-    alt="entry-picture"
-  />
+    <img
+      class="img-thumbnail"
+      src="https://cdn.pixabay.com/photo/2023/01/02/04/13/dog-7691238_640.jpg"
+      alt="entry-picture"
+    />
+  </template>
+  <!-- <Fab icon="fa-save" @on:click="saveEntry" /> -->
+  <Fab icon="fa-save" @click="saveEntry" />
 </template>
 <script>
 import { defineAsyncComponent } from "vue";
-import { mapGetters } from "vuex";
+import { mapGetters, mapActions } from "vuex";
 import getDayMonthYear from "../helpers/getDayMonthYear";
 
 export default {
@@ -49,12 +52,29 @@ export default {
     };
   },
   methods: {
+    ...mapActions("journal", ["updateEntry", "createEntry"]),
     loadEntry() {
-      const entry = this.getEntryById(this.id);
-      if (!entry) {
-        this.$router.push({ name: "no-entry" });
+      let entry;
+      if (this.id === "new") {
+        entry = {
+          text: "",
+          date: new Date().getTime(),
+        };
+      } else {
+        entry = this.getEntryById(this.id);
+        if (!entry) {
+          return this.$router.push({ name: "no-entry" });
+        }
       }
       this.entry = entry;
+    },
+    async saveEntry() {
+      if (this.entry.id) {
+        await this.updateEntry(this.entry);
+      } else {
+        const id = await this.createEntry(this.entry);
+        return this.$router.push({ name: "entry", params: { id } });
+      }
     },
   },
   computed: {
@@ -74,6 +94,13 @@ export default {
   },
   created() {
     this.loadEntry();
+  },
+  watch: {
+    id() {
+      // id(value,oldValue){
+      // console.log({value,oldValue})
+      this.loadEntry();
+    },
   },
 };
 </script>

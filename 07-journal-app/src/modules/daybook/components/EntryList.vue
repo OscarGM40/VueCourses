@@ -8,6 +8,15 @@
         v-model="term"
       />
     </div>
+    <div class="mt-2 d-flex flex-column">
+      <button
+        class="btn btn-primary mx-3"
+        @click="$router.push({ name: 'entry', params: { id: 'new' } })"
+      >
+        <i class="fa fa-plus-circle px-2"></i>
+        Nueva entrada
+      </button>
+    </div>
     <div class="entry-scrollarea">
       <!-- fijate que fácil crear un bucle sin una colección pasando un Number(v-for="item in 50") -->
       <!-- <Entry v-for="entry in $store.getters['journal/getEntriesByTerm']" :key="entry" /> -->
@@ -25,10 +34,10 @@ export default {
   },
   computed: {
     // otra forma era ...mapGetters({ entries: "journal/getEntriesByTerm"}),
-    ...mapGetters('journal',['getEntriesByTerm']),
-    entriesByTerm(){
-      return this.getEntriesByTerm(this.term)
-    }
+    ...mapGetters("journal", ["getEntriesByTerm"]),
+    entriesByTerm() {
+      return this.getEntriesByTerm(this.term);
+    },
   },
   data() {
     return {

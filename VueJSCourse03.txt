@@ -872,8 +872,240 @@ Fijate que traerla en computed ya la deja visible en todo el script.Interesting
 
     VIDEO 170 MOSTRAR ENTRADA EN PANTALLA O REDIRECCIONAR AL USUARIO
 
-    Si no existe la entrada(recuerda que el getter ya me devuelve una Entry o undefined) queremos redireccionar al usuario.Si si existe mostraremos la Entry
+Si no existe la entrada(recuerda que el getter ya me devuelve una Entry o undefined) queremos redireccionar al usuario.Si si existe mostraremos la Entry.
+Usaremos una feature del Options API(y despues veremos todo esto con el Composition API).Esta feature es un watch(ya habiamos creado un watch antes):
+
+watch:{
+  id(value,oldValue){
+    console.log({value,oldValue})
+  }
+}
+
+Fijate que Vue es lo suficientemente inteligente como para detectar que el id no cambia(click en la misma Entry) y no disparar el watch.Aqui si que supera a React
+
+Fijate que al final estamos programando esto:
+created(){
+  this.loadEntry() <- lo carga la primera vez,si pero no las siguientes
+},
+watch:{
+  id(){
+    this.loadEntry() <- lo carga el resto de sucesivos cambios en la url
+  }
+}
+En React sería un useEffect con el id como dependency:
+useEffect( () => {
+  loadEntry()
+},[id])
+
+Seguramente en la Composition API cambiaron el watcher + created lifecycle por un único método.
+Fijate que tuvimos un problema ahora con el parseo de la entrada pues si ponemos una url que no existe entry es undefined,también lo tenemos con el textarea.Dado que no existe una entry lo mejor es renderizar el componente sólo si hay una Entry.
+Cuando necesite una etiqueta agrupadora que no modifique el HTML en Vue tengo la tag <template></template>(similar a un Fragment en React o ng-template en Angular)
+
+<template v-if="entry">
+ ...resto del código
+</template>
+Esta etiqueta no tiene representación en el HTML al compilar
+
+        VIDEO 172 CONFIGURAR REST-API EN FIREBASE
+
+Vamos a usar la Real Time Database de Firebase(que a su vez expone esta DB como una REST,de ahi el nombre del video).
+Una vez creada la DB puedo realizar una petición GET a los nodos que cree(ojo,que hay que agregar .json al final):
+https://<URL>/entries.json (nodo.json)
+Fijate que puedo hacer lo mismo con cada entry(/entries/id.json).Tendrá que ser el id identificativo único de cada entrada.Fijate tmb que siempre se nos devuelve un objeto,en vez de un arreglo.
+
+Por último fijate que básicamente la RealTime DB lo único que me deja es guardar un objeto inmenso,al que le creará endpoints automáticamente.Muy interesante Firebase,as always
+Y ya sí,fijate como en 5 minutos podemos crear una DB y los endpoints,es decir un backend.Esto si que lo hace increible,asinto
+
+      VIDEO 173 RESUMEN DE LA SECCIÓN
+
+De momento hemos hardcodeado las entradas de la app en el state.En la siguiente sección crearemos el CRUD y vendrán de Firebase.
+También hemos creado la aplicación totalmente modularizada(muy pro).Recuerda que también hicimos lo mismo con los stores,cualquier módulo nuevo tiene que pasar por el principal.
+Recuerda que hemos dejado un modulo reutilizable para crear un store inicial según módulo.
+
+NOTA: Array.filter retorna un nuevo arreglo,pero Array.find retorna el mismo objeto,y en JS los objetos son pasados por referencia.Al usar un find debo romper referencia(pues no sabia eztoh)
+
+      SECCION 12 CRUD -VUEX
+
+FH nos recuerda que las acciones pueden ser sincronas o asíncronas,y cuando son asincronas hacen el commit de las mutaciones,que son sincronas.Tendremos pues,que usar acciones para comunicarnos con la RTDB y despues commitear mutations para actualizar el store/State.
+
+También usaremos Vuex como gestor de estado(aunque se pueden usar otros,lo importante es no usar las props sino estados globales
+
+Esta sección tiene por objetivo integrar todo un CRUD utilizando Vuex, puntualmente veremos
+1- Acciones para realizar peticiones http
+2- Mutations para actualizar el State
+3- Getters para obtener información del state
+4- Inserción y subida de archivos a la web
+5- Un poco sobre las referencias locales(referencias a la template ??)
+
+      VIDEO 179 CARGAR ENTRADAS DESDE EL BACKEND
+
+Lo primero añadimos la libreria axios al proyecto y exportamos una instancia del mismo.Le pongo la baseURL de la DB expuesta como REST.
+Creamos una action que haga el get:
+const loadEntries = async() => {
+  const {data} = await journalApi.get('entries.json')
+  console.log(data)
+}
+Y para llamarlas recuerda que tengo que usar mapActions en los methods(parece que debe ir alli siempre)
+
+En el componente DayBookLayout.vue
+
+<script>
+import { mapActions } from "vuex";
+
+export default {
+  components:...,
+  methods:{
+    ...mapActions('journal',['loadEntries'])
+  },
+  created(){
+    this.loadEntries()
+  }
+}
+</script>
+
+Fijate que el lifecycle no lleva la misma sintaxis que methods.Podemos ver que nos viene un objeto y realmente es más apropiada que nos vendría un arreglo.Arreglaremos esto(con una mutation enlazada, diria)
+
+      VIDEO 180 REALIZAR EL COMMIT DE UNA MUTATION
 
 
+Dado que queremos establecer las acciones que vengan de DB,tendremos que usar una acción + una mutation.La mutation lucirá asi:
 
+export const setEntries = (state,entries) => {
+  state.entries= [...state.entries,...entries];
+  state.isLoading = false;
+}
 
+La accion lucirá asi(fijate en el async):
+export const loadInitialEntries = async ({commit}) => {
+  const {data} = await journalApi.get('/entries.json');
+  const entries = [];
+  const entriesToStore = [];
+
+  for(let id of Object.keys(data)){
+    entries.push({
+      id:id,
+      ...data[id]
+    })
+  }
+  commit('setEntries',entries)
+}
+
+VIDEO 181 LLAMAR AL ISLOADING MEDIANTE MAPSTATE
+
+IMPORTANTE: fijate que cuando quiera acceder al state o a los getters lo tengo que hacer en la propieda computed y si es a las acciones en methods:
+
+Docu de Vue: la invocación de un método siempre sucede cuando ocurre una re-renderización(parece que no ocurre inicialmente pues) mientras que las propiedades computadas solo se re-evaluan si alguna de sus dependencias reactivas tuvo cambios(en este caso pasa de true a false luego se reevalua computed)
+
+En cuanto al código:
+import {mapState} from "vuex";
+
+export default {
+  computed:{
+    ...mapState('journal',['isLoading']);
+  }
+}
+En la template:
+<Loader v-if="isLoading">
+</Loader>
+<AnotherSection v-else></AnotherSection>
+
+NOTA: recuerda que el v-else ya se engancha al v-if,no necesita otra condicion,se enlazará a Gryphus y a la negación de la condición del v-if
+
+VIDEO 182 FAB - EMITIR ACCION
+
+La tarea es emitir un evento personalizado desde el Child Component Fab.vue(su declaración) hasta el padre(Con la llamada a el componente).Es decir,emitir un evento hacia el padre.
+Recuerda que Vue expone el objeto global $emit('customEvent') para emitirlo(obviamente tendré que recibirlo en el padre con @customEvent).En resumen:
+
+En el Child(Fab.vue):
+<button @click="$emit('on:click') >
+
+En el padre(el que llame a Fab.vue):
+<Fab @on:click="saveEntry" <- ya desde aqui hacemos el método etc
+
+NOTA: realmente podria haber usado $emit desde el javascript o mandar el evento con argumentos.Esto es la forma más sencilla(sin args y desde la template)
+Fijate tmb que de momento no tiene mucho sentido esto,ya que el hijo no está mandando nada,me valdría el evento pre-built @click en el padre:
+<Fab icon="fa-save" @click="saveEntry" />
+34k son 1800
+
+    VIDEO 183 ACTUALIZAR UNA ENTRADA
+
+Para actualizar una entrada tenemos que ir por PUT a "/entries/:id" + ".json".Tendré que mandar las propiedades date y text
+NOTA: si veo las propiedades Handler,Target,IsRevoked en un console.log se refiere a que es un objeto reactivo controlado por Vue
+
+La accion lucirá asi:
+
+export const updateEntry = ({commit},entry) => {
+  const {date,picture,text} = entry;
+  const dataToSave= {date,picture,text}
+  await axios.put('/entries/'+entry.id+'.json',dataToSave)
+  commit('updateEntry',entry)
+}
+La mutation es asin:
+sxport cont updateEntry= (state,entry) => {
+  parece que sin iterar no se actualiza,que pros
+  const idx = state.entries.findIndex( ({id}) => id === entry.id)
+  state.entries[idx] = entry; 
+}
+
+    VIDEO 184 PREPARACIÓN PARA LA INSERCIÓN DE REGISTROS
+
+Vamos a usar el literal 'new' como id para saber si queremos actualizar o insertar.
+Creamos un botón en la lista de entradas para ir a este modo:
+<button @click="$router.push({name:'entry',params:{id:'new'}})
+Hacemos lo mismo desde el no-entry component.
+Desde el EntryView.vue :
+
+loadEntry(){ <- vendrá id a 'new'
+  let entry;
+   if(this.id === 'new'){
+     entry = {
+     text:"",
+     date: new Date().getTime(),
+   }else{
+    ...
+   }
+   this.entry = entry
+ }
+}
+y el async saveEntry(){
+  this.entry.id <- fijate que le hemos quitado el id a this.entry
+    ? await this.updateEntry(this.entry)
+    // : await this.createEntry(this.entry);
+}
+
+      VIDEO 185 INSERTAR UNA NUEVA ENTRADA
+
+Fijate que el endpoint es el mismo que el GET,solo que por POST.Al realizar este tipo de petición se me devuelve una propiedad llamada 'name' con el Id que le ha dado Firebase.
+
+export const createEntry = async ({ commit }, entry) => {
+  const entryToSave = {
+    date: entry.date,
+    text: entry.text,
+    picture: entry.picture || null,
+  };
+  // Firebase en los POSTS devuelve el id asi {name: 'Msdf345h},en una propiedad name
+  const { data } = await journalApi.post(`/entries.json`, entryToSave);
+  // asi que hay que mandar esa propiedad name como el id al commit de la mutation
+  commit("addEntry", { ...entry, id: data.name });
+  // también lo retornaremos para redireccionar a la nueva entrada
+  return data.name;
+};
+
+El AddEntry lucirá asi:
+export const addEntry = (state, entry) => {
+  state.entries = [entry, ...state.entries];
+};
+
+El método saveEntry hacemos que redireccione
+ async saveEntry() {
+      if (this.entry.id) {
+        await this.updateEntry(this.entry);
+      } else {
+        const id = await this.createEntry(this.entry);
+        return this.$router.push({ name: "entry", params: { id } });
+      }
+    },
+
+      VIDEO 186 BORRAR ENTRADA
+
+      

@@ -1,5 +1,5 @@
 <template lang="">
-  <button class="btn btn-primary"> 
+  <button class="btn btn-primary" @click="$emit('on:click')"> 
   <!-- forma Uno: con una computed property -->
   <!-- <i :class="parseClass"></i> --> 
   <!-- forma dos: usando class + :class -->
