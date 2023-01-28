@@ -1108,4 +1108,167 @@ El método saveEntry hacemos que redireccione
 
       VIDEO 186 BORRAR ENTRADA
 
-      
+Para borrar en Firebase es igual que el PUT pero sin mandar nada(/item/:id + .json).Asi pues creamos la accion
+export const deleteEntry = async ({commit},id) => {
+  await journalApi.delete(`/entries/${id}.json);
+  commit("deleteEntry",id)
+}
+Fijate que el delete devuelve null si consigue borrar esa daybook entry
+La mutation hará un simple filtrado:
+export const deleteEntry= (state,id) => {
+  state.entries = state.entries.filter(entry => entry.id !== id)
+}
+
+    VIDEO 187 SWEET ALERT 2 MENSAJES DE CONFIRMACIÓN Y ESPERA
+
+Lo primero es instalar la libreria:
+>yarn add sweetalert2
+
+Despues en el componente que quiera me traigo la libreria:
+import Swal from "sweetalert2"
+
+Puedo crear una modal asi:
+  new Swal({
+    title: "Espere, por favor",
+    allowOutsideClick: false,
+ })
+ Y despues llamarla con Swal.showLoading();
+ También puedo crear la alerta asi:
+Swal.fire('Guardado','Entrada registrada con éxito','success')
+
+async saveEntry() {
+  new Swal({
+      title: "Espere, por favor",
+      allowOutsideClick: false,
+    });
+    if (this.entry.id) {
+      Swal.showLoading();
+      await this.updateEntry(this.entry);
+      Swal.fire("Guardado", "Entrada registrada con éxito", "success");
+    } else {
+      Swal.showLoading();
+      const id = await this.createEntry(this.entry);
+      Swal.fire("Guardado", "Entrada registrada con éxito", "success");
+      return this.$router.push({ name: "entry", params: { id } });
+    }
+  },
+
+Para el delete tmb le podemos preguntar al usuario antes.Fijate que está libreria me permite usar async/await o .then.catch y trabajar en promesas
+
+const result = await Swal.fire({
+  title:'Esta seguro de borrar la entrada?',
+  text:'La entrada se borrará indefinidamente',
+  showDenyButton:true,
+  confirmButtonText:'Si,estoy seguro
+})
+if(result.isConfirmed){
+  new Swal({
+    ...
+  })
+}
+
+      VIDEO 188 SELECCIONAR Y MOSTRAR UNA IMAGEN LOCAL
+
+Lo primero es crear un input de tipo file y agregarle el método onChange(fijate que si en React es <input type='file' onChange={} ) en Vue es:
+<input type='file' @change="onSelectImage" />
+Recuerda tmb que por defecto ya viaja todo el evento.Esto último es lo mismo que esto:
+<input type='file'  @change="onSelectImage($event)" />
+
+En methods lo rescato:
+onSelectImage(event){ <- recuerda que da igual que le pasara $event,el primer arg va a viajar automáticamente en Javascript
+  console.log(event.target.files[0]) <- vendrá aqui la img
+}
+
+NOTA:con la propiedad multiple puedo seleccionar varias imagenes:
+<input type='file' multiple @change="onSelectImage($event)" />
+Pero vamos a subir de una en una.
+En este punto vamos a necesitar la clase FileReader de Javascript,visible por cualquier fwk dado que es Vanilla JS para mostrar la img desde el filesystem.Fijate que esta clase es clave memorizarla:
+
+handleSelectImage($event){
+  const file = $event.target.files[0];
+  if(!file) return;
+  // guardo en la variable localImage la data:image:lkfsklfkj45k34k5l
+  const fr = new FileReader();
+  fr.readAsDataURL(file);
+  fr.onload = () => this.localImage = fr.result);
+}
+
+Fijate que guarda un data:image que puede interpretar el src de una tag img.Diria que es binario lo que guarda(el stream de bytes).Sea como sea es un procedimiento clave.
+
+Recuerda que tuve que crear la prop en la data:
+data(){
+  return {
+    localImage:null
+  }
+}
+
+Y que la img luce asi:
+<img v-if="localImage" :src="localImage" class="" <- fijate en el binding de src
+Desde luego Vue tiene buena pinta tu,puto envidias
+
+NOTA: fijate que FileReader es solo para ver la imagen.Realmente falta mandar el file.Aunque antes vamos a ocultar el <input type='file' y que lo abra el icono del upload.
+Para esto tendré que crear una referencia local a nuestro input,y que el onClick sobre el icono dispare el onClick
+
+      VIDEO 189 REFERENCIAS LOCALES EN VUE
+
+Sinceramente no puede ser más fácil,sólo hay que usar el atributo ref y darle un valor:
+<input type='file' @change="onSelectImage" ref="imageSelector" v-show="false" accept="image/png, image/jpeg" /> <- fijate que no es :ref 
+
+NOTA: Vue expone el objeto global $refs para acceder a todas las refs que defina,de igual manera que expone $router o $route o $store.Esto si que es la ostia
+
+<button @click="onSelectImageByRef" />
+onSelectImageByRef(){
+  this.$refs.imageSelector.click()
+}
+NOTA:fijate como en Vue puedo ocultar con un v-show="false" y no tener que ir al CSS y como puedo ya desde el HTML definir que tipo de files aceptar y el selector de archivos del sistema mostrará solo ese tipo de imagenes,videos,audio,etc
+
+        VIDEO 190 SUBIR IMAGENES A CLOUDINARY
+
+Ver docu: https://cloudinary.com/documentation/upload_images#uploading_with_a_direct_call_to_the_rest_api
+
+Cloudinary realmente no es sólo un storage para subir imagenes,sino que tienen toda una REST API detrás.Muy importante esto:
+
+If you wish to upload files with a direct call to the API from within your own custom code you can send an HTTPS POST request to the following Cloudinary URL:
+
+https://api.cloudinary.com/v1_1/<cloud name>/<resource_type>/upload
+
+Where:
+1- cloud name is the name of your Cloudinary product environment.
+2- resource_type is the type of file to upload. Valid values: image, raw, video and auto to automatically detect the file type.
+
+NOTA: puedo venir desde una API autorizada o no.Éste es nuestro caso,venimos desde una API unauthenticated.Por ello se me pedirá un upload_preset.
+
+IMPORTANTE: me pedirán un 'upload_preset'(aparte de un file).Fijate que ya tengo tres(teslo-shop,react-journal-app y pizzaWebsite).Los tengo en signed pero FH los tiene en unsigned(unsigned cualquier persona puede subir fotos) luego me equivoqué y los dejé cerrados
+Creo pues el upload_preset 'vue-daybook-fh'
+
+      VIDEO 191 SUBIR IMG DESDE JAVASCRIPT
+
+Esta forma de subir imagenes es de JS,ojo,da igual el fwk.
+Fijate que necesito crear un FormData con un file y un upload_preset
+
+        SECCION 13 TESTING DE VUEX(DAYBOOK-APP)
+
+Veremos testing sobre el store y sobre el routing de Vue.Si bien podriamos simular el store vamos a usar el store realmente(ya veré que es esto realmente)
+De nuevo Vue hace muy sencillo el testing sobre su store.  
+
+Es momento de realizar pruebas sobre el router y Vuex, no pretendo en esta sección de pruebas cubrir el 100% de la aplicación anterior ya que sería muy cansado y repetitivo, me quiero enfocar en lo nuevo que no hemos visto y un repaso de varias pruebas para asegurarme que están aprendiendo a probar sus componentes y funciones.
+
+Puntualmente tocaremos estas pruebas:
+
+1- Router
+2- Funciones del router y maps
+3- Flexibilidad en las rutas
+4- Carga de archivos
+5- Ambiente de pruebas, desarrollo y producción
+6- Vuex Store
+7- Vuex Modules
+  - actions
+  - mutations
+  - getters
+  - state
+
+8- Mocks de librerías de terceros
+9- Simulaciones
+10- Mocks sobre dispatch de acciones
+
+Es una sección bastante fuerte de pruebas, tómenla con calma porque puede sentirse abrumadora con el montón de contenido nuevo a probar.Asi se hará,oh, gran Dios FH

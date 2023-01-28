@@ -4,7 +4,8 @@ import journalApi from "@/api/journalApi";
 
 export const loadEntries = async ({ commit }) => {
   const { data } = await journalApi.get("/entries.json");
-  // console.log({ data });
+  // ojo que si no hay data el Object.keys(data) va a reventar la app pues data es null
+  if(!data) return commit("setEntries",[])
   const entries = [];
   /* 
   Object.keys(data).map( (id) => {
@@ -48,4 +49,8 @@ export const createEntry = async ({ commit }, entry) => {
   return data.name;
 };
 
-// export const deleteEntry = async (/* {commit} */) => { }
+export const deleteEntry = async ({ commit }, id) => {
+  // para borrar en Firebase es con delete(/item/:id.json)
+  await journalApi.delete(`/entries/${id}.json`);
+  commit("deleteEntry", id);
+};
