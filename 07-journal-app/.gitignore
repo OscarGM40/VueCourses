@@ -2,6 +2,8 @@
 node_modules
 /dist
 
+# eliminar archivo con el SDK hardcodeado(comprobarlo al hacer el push)
+uploadImage.spec.js
 
 # local env files
 .env.local

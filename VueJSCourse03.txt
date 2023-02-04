@@ -1272,3 +1272,234 @@ Puntualmente tocaremos estas pruebas:
 10- Mocks sobre dispatch de acciones
 
 Es una sección bastante fuerte de pruebas, tómenla con calma porque puede sentirse abrumadora con el montón de contenido nuevo a probar.Asi se hará,oh, gran Dios FH
+
+      VIDEO 195 INSTALAR UNIT-TEST EN VUE 
+
+Pudiera ser que tengamos un proyecto ya creado sin configurar el testing.Podemos añadir facilmente el modulo de testing con:
+>vue add unit-jest
+Este comando creará los scripts de arranque,la carpeta 'tests' en la raiz con un testing unitario random y el archivo jest.config.js por si quiero añadir/cambiar la configuración de jest.
+
+    VIDEO 196 PRUEBAS EN EL ABOUT COMPONENT
+
+De momento simplemente hacemos el match contra el snapshot(recuerda usar shallowMount para que solo renderize un nivel)
+
+  VIDEO 197 PRIMERAS PRUEBAS CON EL ROUTER DE VUE(HOME COMPONENT)
+
+No puede ser más sencillo mockear el router de Vue.Dentro de las opciones opcionales que acepta el shallowMount puedo mockear cualquier objeto global(como lo es $router o $refs,por ejemplo).Luego creamos un mock del router y miramos que mock.push haya sido llamado:
+
+const mockRouter = {
+  push: jest.fn(); <- da igual lo que devuelva
+}
+const wrapper = shallowMount(HomeView, {
+  global:{
+    mocks:{
+      $router: mockRouter
+    }
+  }
+})
+//aplicamos el estímulo
+wrapper.find('button').trigger('click);
+expect(mockRouter.push).toHaveBeenCalledTimes(1);
+expect(mockRouter.push).toHaveBeenCalledWith({name: 'no-entry' });
+Terriblemente sencillo mocker el router
+NOTA: comprobar argumentos del render en React
+https://testing-library.com/docs/react-testing-library/setup/#custom-render
+
+Parece que el método render de RTL expone varias propiedades/métodos.Por ejemplo rerender para rerenderizar un comp:
+
+const {rerender} = render(<Component title="title");
+rerender(<Component title="another title");
+TIP: enzyme hasta React 16,despues RTL para testing
+
+act(): realmente parece la mejor opcion para re-renderizaciones.Por ejemplo:
+
+beforeEach( () => {
+  container = document.createElement('div');
+  document.body.appendChild(container)
+})
+afterEach( () => {
+  document.body.removeChild(container);
+  container=null;
+})
+// primer render
+act( () => {
+  ReactDOM.createRoot(container).render(<Counter />)
+}
+const button = container.querySelector('button');
+const label = container.querySelector('p');
+expect(label.textContext).toBe('You clicked 0 times')
+// segundo render
+act( () => {
+  button.dispatchEvent( new MouseEvent('click',{bubbles:true}));
+})
+expect(label.textContext).toBe('You clicked 1 times');
+NOTA: aqui hay mucho boilerplate.Pero queda claro que act lanza otra renderización(entiendo yo)
+
+      VIDEO 198 TAREA PRUEBAS EN EL FAB COMPONENT
+
+Comprobar que si le pasamos una clase el componente la pone en el icono:
+  test("should have the given class through props as icon class", () => {
+    const wrapper = shallowMount(Fab, {
+      props: { icon: "fa-rru-ki-to" },
+    });
+
+    const icon = wrapper.find("i");
+    expect(icon.classes().includes("fa-rru-ki-to")).toBe(true);
+  });
+
+Comprobar que el cmp emite el evento on:click:
+  test("test that on:click is emitted", () => {
+    const wrapper = shallowMount(Fab);
+
+    wrapper.find("button").trigger("click");
+    console.log(wrapper.emitted());
+
+    // no puede ser to bE asinto ya que dos arrays no son iguales,same as with two objects,tengo que bajar la equidad
+    expect(wrapper.emitted("on:click")).toEqual([[]]);
+    // fijate que emitted emite un arreglo con otro arreglo,ambos vacios,pero me vale decir que tendrá length de 1 === 1 emision.Muy prehistorics aqui)
+    expect(wrapper.emitted("on:click")).toHaveLength(1);
+  });
+  Fijate en la impresion de wrapper.emitted() que es clave.Además,toHaveLength aqui hace de toHaveBeenCalledTimes,importante
+Recuerda que puedo deshabilitar Compact Folders desde los user settings en VSCode,algo que debi haber echo hace tiempo.
+
+  VIDEO 199 DAYBOOK ROUTER
+
+Hacer una prueba sobre el objeto con las rutas puede ser interesante,asegurandos asi que nadie la cambia accidentalmente.
+
+IMPORTANTE: fijate en el uso de object.toMatchObject({}) donde el primer object simplemente tiene que contener el toMatchObject(aunque puede tener más,mínimo tiene que contener esto).
+
+expect({name:'paco',edad:34}).toMatchObject({name:'paco'})
+En cuanto al video yo voy a usar toEqual ya que toMatchObject permite quitarle todo,siempre y cuando el objeto original tenga el objeto del toMatchObject 
+:
+ test("router should have this config", () => {
+    expect(DaybookRoutes).toEqual({
+      name: "daybook",
+      component: expect.any(Function),
+      children: [
+        {
+          path: "",
+          name: "no-entry",
+          component: expect.any(Function),
+        },
+        {
+          path: ":id",
+          name: "entry",
+          component: expect.any(Function),
+          props: expect.any(Function),
+        },
+      ],
+    });
+  });
+
+  VIDEO 200 COMPROBAR QUE LAS RUTAS CARGUEN LOS COMPONENTES ESPERADOS
+
+En esta prueba vamos a testear lo que nos habiamos dejado en la primera.Usremos el expect sobre las rutas hijas.Pero primero veamos que imprime la llamada a esas funciones que cargan la ruta asincronamente:
+
+test('',async () => {
+   console.log(await DaybookRoutes.children[0].component())
+})
+* Podemos ver que el test debe ser asincrono lo primero y lo más importante,que no vemos el name del componente pues no se lo hemos dado.
+
+La solución es desde ya,darle siempre un name a cada componente:
+
+export default {
+  name:"NoEntrySelected",
+
+De esta forma ya podemos ver esa propiedad y hacer los asserts:
+{
+  default: {
+    name: 'NoEntrySelected',
+    components: { Fab: [Object] },
+    methods: { createNewEntry: [Function: createNewEntry] },
+    render: [Function: render]
+  },
+  render: [Function: render]
+}
+
+IMPORTANTE: fijate que axios estaba dando problemas y la solución es configurar jest agregando esta linea:
+ transformIgnorePatterns: ["/node_modules/(?!axios)"], 
+
+Fijate que por consola ya decian la solucion:
+To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+
+En este punto lo mejor es usar Promise.all o Promise.allSettled para no hardcodear los indices del arreglo de rutas por si cambiarán y esperar un array con los valores en cualquier posicion:
+ test('children routes should call the desired components', async () => {
+    const routesPromises = [];
+    DaybookRoutes.children.forEach( child => routesPromises.push(child.component()))
+    const routesResolved = (await Promise.allSettled(routesPromises)).map(r => r.value.default.name);
+    expect(routesResolved).toEqual(expect.arrayContaining(["EntryView","NoEntrySelected"]))
+  })
+* expect(routesResolved).toContain("EntryView") tmb va bien,comprobando los valores de uno en uno
+
+      VIDEO 201 TESTING DE LA FUNCION DE MAPEO DE RUTA
+
+Realmente sería interesante testear la propiedad props de las rutas ya que sin ella no va a funcionar bien la aplicación:
+   {
+      path: ":id",
+      name: "entry",
+      component: () =>
+        import(/* webpackChunkName: "daybook" */ "@/modules/daybook/views/EntryView.vue"),
+      props:(route) => {
+        return {
+          id: route.params.id
+        }
+      }
+    },
+
+
+NOTA: realmente este test es muy sencillo(fijate lo único que props es una función y tentgo que ejecutarla):
+const route = {
+  params:{
+    id:4
+  }
+}
+ expect(DaybookRoutes.children[1].props(route).id).toBe(4); <- fijate que tengo que hacer .id de la llamada pues la funcion retorna un object con la prop {id: id}
+
+ However,notice again that we are hardcoding the index and we shouln't be:
+
+   test("when routing to EntryView the id of the path should be trasmitted", async () => {
+    const routeMock = {
+      params:{
+        id: 'ABC-123'
+      }
+    }
+    const entryRoute = DaybookRoutes.children.find(route => route.name === 'entry');
+    expect(entryRoute.props(routeMock).id).toBe(routeMock.params.id)
+  });
+  Fijate que find buscará el primero y que debería de haber sólo una ruta con ese name,deshaciendonos de hardcodear el indice.Find es muy potente.
+
+      VIDEO 202 PRUEBAS CON CARGA DE ARCHIVOS
+
+Realmente es otra prueba que es muy sencilla,ya que solo tengo que crear un File y pasarlo a la función y esperar que regrese un url tipo string o que empiece por https(prefiero esta ya que sabemos que es una url).
+
+TIP: para crear un File puedo bajarme cualquier imagen de Internet haciendola un GET pero especificando como responseType un "arraybuffer".
+Muy pro FH como siempre:
+
+test("uploadImage should return a url when a valid File is given", async () => {
+  const { data } = await axios.get("urlAUnaImagen",{responseType:"arraybuffer})
+  const file = new File([data],"new_file.png")
+  const fileUploaded = await uploadImage(file);
+  expect(fileUploaded.startsWith('https://'))
+} )
+
+Sin embargo estamos subiendo una imagen a Cloudinary cada vez que ejecutemos esta prueba.Lo ideal sería borrarla inmediatamente despues de ejecutar el test
+NOTA: jest por defecto tiene 5 segundos para ejecutar las peticiones.Se puede configurar esto con jest.setTimeout(time) al principio de cada test o de forma general.Ejemplo:
+
+jest.setTimeout(15000) <- 15secs
+
+    VIDEO 203 BORRAR ARCHIVOS SUBIDOS EN LAS PRUEBAS
+
+
+Hay varias formas de hacer esto.Podriamos hacerlo con un axios.delete apuntando al resourceId pero vamos a usar su SDK:
+>yarn add -D cloudinary
+
+Una vez instalada la libreria hay que configurar el objeto global que exponen con mis credenciales:
+
+import cloudinary from "cloudinary";
+
+cloudinary.config({
+  cloud_name:,
+  api_key: ,
+  api_secret: ,
+})
+Tengo todo en la tab dashboard,claro que exponerlo en un archivo de la app es un error.En este punto debemos crear variables de entorno y eliminarlas del repo con el .gitignore
