@@ -1503,3 +1503,136 @@ cloudinary.config({
   api_secret: ,
 })
 Tengo todo en la tab dashboard,claro que exponerlo en un archivo de la app es un error.En este punto debemos crear variables de entorno y eliminarlas del repo con el .gitignore
+
+      VIDEO 204 VUEX - MOCKING INITIAL STATE
+
+La primera prueba va a ser comprobar que el estado inicial luce de la forma que nosotros queremos.Sin embargo,ya desde esta prueba vamos a tener que crear un Store mockeado.
+Fijate que lo vamos a hacer con la misma función createStore(vuex no tiene una función adecuada para crear un store de pruebas ??)
+
+import { createStore } from "vuex"
+
+const createMockStore = (initialState) => 
+  createStore({
+    modules:{
+      journal:{
+        ...journalModule, <- el store verdadero
+        state: initialState
+      }
+    }
+  })
+
+La prueba en si es muy sencilla,aunque vamos a usar un mock,pero es simple concordancia de objetos:
+describe("Initial state should match", () => {
+  test("initialState should concord", () => {
+    const store = createVuexMockStore(journalStateMock); <- mock que luzca como un initial state
+    const { isLoading, entries } = store.state.journal;
+    expect(isLoading).toBeFalsy();
+    expect(entries).toEqual(journalStateMock.entries)
+  });
+});
+
+      VIDEO 205 TESTING MUTATION SET-ENTRIES
+
+Vamos a testear esta mutation.Realmente lo único que tenemos que hacer es llamar a esta mutation y ver/apreciar como cambia el estado(es como testear un dispatch)
+IMPORTANTE: recuerda que una mutation la tengo que hacer commit,y para ello necesito el objeto global store(que es lo que retorna la llamada al createStore,luego tengo ya visión sobre ese objeto)
+
+test("setEntries mutation should set the given entries in the store", () => {
+  const store = createVuexMockStore({isLoading:true,entries:[]})
+  store.commit("journal/setEntries",journalStateMock.entries)
+  expect(store.state.isLoading).toBeFalsy()
+  expect(store.state.entries.length).toBe(journalStateMock.entries.length)
+})
+Desde luego parece demasiado sencillo esto con Vue.Amazing
+
+      VIDEO 206 TESTING MUTATION UPDATE ENTRY
+
+Realmente es igual de sencillo.Obviamente la entryToUpdate tiene que tener un ID válido:
+
+  test("updateEntry mutation should update the entry by its id", () => {
+    const store = createVuexMockStore({ isLoading: true, entries: journalStateMock.entries });
+
+    const entryToUpdate = {
+      id: "-NMt3oLpVkNcI1uex3n3", <- debe existir
+      date: 1674921046635,
+      picture: "anotherImg.jpg",
+      text: "entryToUpdate",
+    };
+
+    store.commit("journal/updateEntry", entryToUpdate);
+    const updatedEntry = store.state.journal.entries.find((entry) => entry.id === entryToUpdate.id);
+    expect(updatedEntry).toEqual(entryToUpdate);
+    expect(journalStateMock.entries).toContainEqual(entryToUpdate);
+  });
+
+El toEqual nos vale,ya que los objetos tienen que coincidir.Fijate que tmb tengo toContain y toContainEqual(que bajará la equidad a ==).Esto es lo mismo que toBe y toEqual
+ToContainEqual parece muy parecido a ToMatchObject
+
+      VIDEO 207 ADD ENTRY AND DELETE ENTRY TESTS
+
+De nuevo tarea muy sencilla, pudiendo hacerla en la misma prueba.Añadimos una entrada cualquiera a un state con entradas vacio y buscamos que existe,despues la borramos y comprobamos que el state.entries haya quedado vacio,etc:
+
+ test("addEntry mutation should add the given entry to the state whereas deleteEntry should delete an entry by its id", () => {
+    const store = createVuexMockStore({ isLoading: true, entries: [] });
+
+    const entryToAdd = {
+      id: "-NMt3oLpVkNcI1uex4n4",
+      date: 1674921046665,
+      picture: "anotherImg.jpg",
+      text: "entryToAdd",
+    };
+
+    store.commit("journal/addEntry", entryToAdd);
+    expect(store.state.journal.entries).toContainEqual(entryToAdd);
+    store.commit("journal/deleteEntry", entryToAdd.id);
+    expect(store.state.journal.entries.length).toBe(0);
+  });
+
+  VIDEO 208 TESTING GETTERS - GET ENTRIES BY TEMR AND GET ENTRY BY ID
+
+  Fijate que tenemos getters que lo que hacen es llamar a una funcion que retornará cierta data.Estos getters son más complejos que un simple shortAccess
+  IMPORTANTE: para llamar a un getter desde el objeto store tenemos que usar computedProperties:
+  
+  store.getters['journal/getEntriesByTerm] <- esto es la funcion,ojo
+
+  Fijate que es una funcion por la naturaleza de nuestros getters,pero podria ser la data en getters más sencillos.Por ello hay que pasarle los argumentos necesarios:
+
+     const store = createVuexMockStore({ isLoading: true, entries: journalStateMock.entries });
+
+    const entryToAdd = {
+      id: "-NMt3oLpVkNcI1uex7n7",
+      date: 1674921046667,
+      picture: "anotherImg.jpg",
+      text: "curso",
+    };
+
+    store.commit("journal/addEntry", entryToAdd);
+    expect(store.getters["journal/getEntriesByTerm"]("curso").length).toBe(2);
+    expect(store.getters["journal/getEntryById"](entryToAdd.id)).toEqual(entryToAdd);
+  });
+
+  IMPORTANTE: fijate que el initialState está siendo pasado por referencia y apunta siempre al mismo mock(está siendo pasado por referencia entre tests),dando lugar a inconsistencia de datos.La solución es usar structuredClone para crear una copia profunda de su argumento:
+
+  const createVuexStore = (initialState) => {
+    return createStore({
+      modules:{
+        journal:{
+          ...journal,
+          state: structuredClone(initialState)
+        }
+      }
+    })
+  }
+  NOTA: este metodo structuredClone(object,options?) permite pasarle como segundo argumento opcional partes de ese objeto que no quiero que se clonen,ya que hará una copia profunda sin él.
+  De nuevo,testear un getter ha sido muy sencillo.Pasemos a las async actions
+
+    VIDEO 209 TESTING ACTIONS - LOAD ENTRIES
+
+Para testear una entrada hay que tener en cuenta que son asincronas,asi que habrá que hacer el await del store.dispatch(además que las acciones se disparan a diferencia de las mutations que se comittean),luego:
+
+test("loadEntries should load initial entries from Firebase", async () => {
+  const store = createVuexMockStore({isLoading:false,entries:[]})
+  await store.dispatch('journal/loadEntries')
+  expect(store.state.journal.entries.length).toBe(3) <- porque tengo 3
+})
+Sin embargo fijate que esto es más bien una prueba de integración,ya que estamos probando sobre el backend.Un test unitario no debe acceder a otros sistemas,deberiamos mockear axios
+
