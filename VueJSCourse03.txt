@@ -1636,3 +1636,271 @@ test("loadEntries should load initial entries from Firebase", async () => {
 })
 Sin embargo fijate que esto es más bien una prueba de integración,ya que estamos probando sobre el backend.Un test unitario no debe acceder a otros sistemas,deberiamos mockear axios
 
+    VIDEO 210 ACTIONS - UPDATE ENTRY
+
+Vamos a testear el updateEntry,obviamente mandando un id que funcione.Fijate que lo suyo es realizar el commit tmb y ver que cambia tanto firebase como el store:
+
+  test("actions: updateEntry should update an entry from Firebase if the id exists", async () => {
+    const store = createVuexMockStore({ isLoading: false, entries: journalStateMock.entries });
+
+    const entryToUpdate = {
+      id: "-NMrndf-y5yHdKmYgGVP",
+      date: 1674899769991,
+      picture:
+        "https://res.cloudinary.com/oscargm40/image/upload/v1674921036/vue-daybook/qoywrtd7fpqtzejbugux.png",
+      text: "Vue parece bastante interesante,asinto.Sigamos con el curso(updated from test environment)",
+    };
+    await store.dispatch("journal/updateEntry", entryToUpdate);
+    expect(store.state.journal.entries.find((e) => e.id === entryToUpdate.id)).toEqual(
+      entryToUpdate,
+    );
+     store.commit("journal/updateEntry", entryToUpdate);
+     expect(store.state.journal.entries.find(e => e.id === entryToUpdate.id).text).toBe(entryToUpdate.text);
+  });
+Idempotencia: propiedad para realizar una acción determinadas veces y aun así conseguir el mismo resultado que se obtendría si se realizase una vez.Un elemento que cumple esta propiedad es un elemento idempotente.Por ejemplo en matemáticas,los dos únicos números reales idempotentes son 0(0*0=0 | 0*0*0*0=0) y el 1.Podria resumirlo como: si lo hago otra vez va a dar el mismo resultado(en testing)
+
+        VIDEO 211 CREATE ENTRY Y DELETE ENTRY
+
+Lo mismo para crear una entrada o borrarla.Fijate de la importancia de mockear axios y el store con spyOn:
+jest.mock("src/api/journalAPI") <- más el import es suficiente
+test("actions: createEntry should create the given entry",async () => {
+  const store = createVuexStore({isLoading:false:entries:[]})
+  const newEntry = {date: xxxx,text:"anything"}
+  const newEntryId= 'nuevo-id';
+
+  jest.spyOn(journalAPI,"post").mockResolvedValueOnce({
+    data: {name: newEntryId}
+  })
+  jest.spyOn(store,"commit");
+      expect(spyOnJournalApiPost).toHaveBeenCalledWith("/entries.json", {
+      ...newEntry,
+      picture: null,
+    });
+    expect(spyOnStoreCommit).toHaveBeenCalledWith(
+      "journal/addEntry",
+      { ...newEntry, id: entrySaved },
+      undefined,
+    );
+    expect(newEntryId).toBe(entrySaved);
+})
+
+    VIDEO 212 PRUEBAS EN EL COMPONENTE ENTRY
+
+Tarea consistente en realizar pruebas sobre este componente.Dado que tiene una redirección sobre él,hay que mockear el router.Otra prueba debe ser analizar las propiedades computadas que recibe.
+
+describe("Pruebas en el entry.spec", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const mockRouter = {
+    push: jest.fn(),
+  };
+
+  const mockEntry = {
+    text: "texto de la entrada",
+    date: 1674899769891,
+    picture: null,
+    id: "mock-entry-id",
+  };
+
+  it("hacer click en la entrada debe redireccionar", () => {
+    const wrapper = shallowMount(EntryVue, {
+      props: {
+        entry: mockEntry,
+      },
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+      },
+    });
+
+    wrapper.find("div").trigger("click");
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      name: "entry",
+      params: { id: mockEntry.id },
+    });
+  });
+
+    VIDEO 214 PRUEBAS EN EL COMPONENTE ENTRYLIST
+
+Para realizar esta prueba vamos a tener problemas con el mapGetters,es decir,tenemos que mockear los gettes.De echo tendremos que mockear todo este slice del store(el journal store) y despues pasarlo al mock general que creamos con Vue.createStore en una nueva propiedad llamada plugins:
+
+import Vue from "vuex";
+
+const mockedPartialStore ={
+  namespaced:true:
+  getters:{
+    getEntriesByTerm: () => () => ["string"]
+  },
+  state:() => ({
+    loading:false,
+    entries: <- las entradas iniciales
+  })
+}
+const mockedGeneralStore = Vue.createStore({
+  modules:{
+    journal:{...mockedPartialStore}
+  }
+})
+Y es éste mock completo del store el que hay que pasar en plugins:
+
+it('must redirect to new entry',() => {
+  const wrapper = shallowMount(EntryList,{
+    global:{
+      mocks:{
+        $router: { push: jest.fn()}
+      },
+      plugins: [mockedGeneralStore]
+    }
+  })
+})
+Fijate que la propiedad es global.plugins y es un arreglo de plugins.
+NOTA: puedo crear shallow copies de varias formas:
+const simpleObj = { title: "sdjfk"}
+const shallowCopyOne = {...simpleObj}
+const shallowCopyTwo = Object.assign({},simpleObj)
+const shallowCopyThree = Object.create(simpleObj)
+Sin embargo,las tres formas hacen shallow copies
+
+      VIDEO 215 ENTRY LIST - SEGUNDA PARTE DE LAS PRUEBAS USANDO GETTERS
+
+Realmente no necesitamos mockear los getters o las actions,y podemos usar la forma que estabamos haciendo ya:
+
+const createVuexMockStore = (initialState) =>
+  createStore({
+    modules: {
+      journal: {
+        ...journalModule,
+        state: structuredClone(initialState),
+      },
+    },
+  });
+Fijate que con esta forma el journalModule me da acceso a todos las actions,getter o mutations reales pero el state si que le pasamos el que querramos.En el video anterior vimos como mockear todo el modulo,pero no lo necesitamos( y menos para devolver el mismo getter,claro)
+
+Ahora si ya podemos testear este componente pasandole el global.plugins(que realmente era lo único que necesitabamos añadir):
+
+  test("should show the given initial entries", () => {
+    const store = mockMainStore();
+    console.log(store.state.journal.entries)
+
+    const wrapper = shallowMount(EntryListVue, {
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+        plugins: [store],
+      },
+    });
+    // console.log(wrapper.html())
+  expect(wrapper.findAll('entry-stub').length).toBe(2)
+
+* Recuerda que con wrapper.html() veo el html y que al usar shallowMount no voy a ver las Entry de la iteracion con el v-for="entry in entriesByTerm" :key="entry.id"
+
+ IMPORTANTE: el método setValue en Vue es asincrono,esto es así porque tiene que esperarse a que haga la modificación respectiva en el Virtual DOM.
+
+      VIDEO 216 PRUEBAS EN EL CMP ENTRY-VIEW
+
+Este componente es un tanto complicado,incluso usa una libreria externa.Trar ver lo que hace el componente podemos observar que lo mejor sería usar todas las actions y getters ya existentes y solo mockear el state inicial,aunque yo mockearé todo el módulo:
+
+export const mockedJournalStore = {
+  namespaced: true,
+  state: () => ({
+    loading: false,
+    entries: journalStateMock.entries,
+  }),
+  getters: {
+    getEntriesByTerm: getEntriesByTerm,
+    getEntryById,
+  },
+  actions: {
+    updateEntry: updateEntry,
+    deleteEntry: deleteEntry,
+    createEntry: createEntry,
+  },
+};
+
+Ya solo es probar que si no haya id redireccione a 'no-entry' o que muestre la imagen correspondiente a una entrada con id existente:
+  test("debe de sacar al usuario porque el id no existe", () => {
+    shallowMount(EntryViewVue, {
+      props: {
+        id: "este id no existe",
+      },
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+        plugins: [mockGeneralStore()],
+      },
+    });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: "no-entry" });
+  });
+
+      VIDEO 217 PRUEBAS CON EL BORRADO EN EL ENTRYVIEW
+
+Vamos a realizar un espia de todo el Sweet Alert.Fijate que en este punto hemos tenido problemas con el event loop y que la solución para comprobar el push(que se ha tenido que hacer es un simple setTimeout)
+
+import Swal from "sweetalert2"
+
+* fijate que es jest.mock(libreria) donde la libreria es el nombre del paquete que se instaló
+jest.mock("sweetalert2",() => ({
+  fire: jest.fn(),
+  showLoading: jest.fn(),
+  close: jest.fn(),
+}))
+
+Asi pues si quisiera mockear vuex:
+import Vue from "vuex";
+jest.mock("vuex",() => ({
+
+}))
+O react-router-dom:
+import router from "react-router-dom";
+jest.mock("react-router-dom")
+Tu fijate que no puede ser el nombre de la importación,ya que cada uno lo puede llamar de otra forma,nunca pudo ser jest.mock("Swal") ya que otro dev puede traerlo con otro nombre.Siempre el nombre de la libreria
+Entonces mockeamos la libreria:
+import XXX from "sweetalert2";
+jest.mock("sweetalert2",() => ({
+  fire: 
+}))
+
+En este punto podria haber declarado ya arriba que Swal.fire.fn().mockReturnedValueOnce(Promise.resolve({isConfirmed:true})) pero esto sería hardcodear el fire.Si tuviera que cambiar ese mock tengo que hacerlo asi:
+
+import Swal from "sweetalert2";
+
+jest.mock("sweetalert2",() => ({
+  fire: jest.fn(),
+  close:jest.fn(),
+  showLoading:jest.fn()
+}))
+
+y ya en el test que quiera piso a ese jest.fn()
+
+test('debe de borrar una entrada',async () => {
+  Swal.fire().mockReturnValueOnce(Promise.resolve({isConfirmed:true}))
+});
+
+Muy interesante esto,billy.Y recuerda que tuvimos que hacer esto:
+
+   setTimeout(() => {
+      expect(mockRouter.push).toHaveBeenCalled();
+    },10)
+
+   VIDEO 219 SIMULAR UN ESPIA PARA EL DISPATCH
+
+Una vez creado el store podemos mockear cualquiera de las acciones,mutaciones,getters a los que tenga acceso ese store.En nuestro caso realmente no queremos que dispare el delete pues va a ir a Firebase a borrar la entrada.Y es asi de sencillo:
+
+const store = createVuexStore();
+store.dispatch = jest.fn() <- cualquier dispatch va a realizar ya nada xd
+Y lo mismo para las mutations(aunque realmente en Vue nos daría igual ya que solo tendrían impacto sobre el front,pero las actions si es importante no disparar su implementación real)
+
+store.dispatch=jest.fn();
+Ya solo es esperar que se llame ese dispatch.
+  expect(store.dispatch).toHaveBeenCalledWith(
+      "journal/deleteEntry",
+      journalStateMock.entries[0].id,
+    ); 
+En este punto fijate lo ridículo que es hacer comprobaciones sobre la implementación real de un dispatch,y como en el proyecto Dani o Andrea habrán cambiado la implementación de los mismos.
+Sección genial.
+

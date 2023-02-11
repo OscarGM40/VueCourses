@@ -96,4 +96,66 @@ describe("Initial state should match", () => {
     await store.dispatch("journal/loadEntries");
     expect(store.state.journal.entries).toHaveLength(2);
   });
+
+  test("actions: updateEntry should update an entry from Firebase if the id exists", async () => {
+    const store = createVuexMockStore({ isLoading: false, entries: journalStateMock.entries });
+
+    const entryToUpdate = {
+      id: "-NMrndf-y5yHdKmYgGVP",
+      date: 1674899769991,
+      picture:
+        "https://res.cloudinary.com/oscargm40/image/upload/v1674921036/vue-daybook/qoywrtd7fpqtzejbugux.png",
+      text: "Vue parece bastante interesante,asinto.Sigamos con el curso(updated from test environment)",
+    };
+    await store.dispatch("journal/updateEntry", entryToUpdate);
+    expect(store.state.journal.entries.find((e) => e.id === entryToUpdate.id)).toEqual(
+      entryToUpdate,
+    );
+    expect(store.state.journal.entries.find((e) => e.id === entryToUpdate.id).text).toBe(
+      entryToUpdate.text,
+    );
+  });
+
+  test("actions: createEntry y deleteEntry", async () => {
+    // crearStore
+    const store = createVuexMockStore({ isLoading: false, entries: journalStateMock.entries });
+    // crear newEntry
+    const newEntry = { date: 1674899769991, text: "Nueva entrada desde testing" };
+    //  dispatch de la action newEntry
+    const entrySaved = await store.dispatch("journal/createEntry", newEntry);
+    // buscamos en el store la nueva  entrada
+    const entryStored = store.state.journal.entries.find((e) => e.id === entrySaved);
+    // que haga match y que el id sea un string(y que haya 3)
+    expect(entryStored).toEqual({ ...newEntry, id: entrySaved });
+    expect(entryStored.id).toEqual(expect.any(String));
+    expect(store.state.journal.entries).toHaveLength(3);
+
+    // la borramos
+    await store.dispatch("journal/deleteEntry", entrySaved);
+    // que haya dos
+    expect(store.state.journal.entries).toHaveLength(2);
+  });
+  test("actions: createEntry y deleteEntry", async () => {
+    // crearStore
+    const store = createVuexMockStore({ isLoading: false, entries: journalStateMock.entries });
+    // crear newEntry
+    const newEntry = { date: 1674899769991, text: "Nueva entrada desde testing" };
+    const newEntryId = "nuevo-id";
+    // hacemos que el post devuelva lo que queramos
+    const spyOnJournalApiPost = jest.spyOn(journalAPI, "post").mockResolvedValueOnce({
+      data: { name: newEntryId },
+    });
+    const spyOnStoreCommit = jest.spyOn(store, "commit");
+    const entrySaved = await store.dispatch("journal/createEntry", newEntry);
+    expect(spyOnJournalApiPost).toHaveBeenCalledWith("/entries.json", {
+      ...newEntry,
+      picture: null,
+    });
+    expect(spyOnStoreCommit).toHaveBeenCalledWith(
+      "journal/addEntry",
+      { ...newEntry, id: entrySaved },
+      undefined,
+    );
+    expect(newEntryId).toBe(entrySaved);
+  });
 });

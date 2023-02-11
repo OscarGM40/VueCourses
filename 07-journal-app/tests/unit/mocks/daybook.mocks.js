@@ -1,3 +1,6 @@
+import { createEntry, deleteEntry, updateEntry } from "@/modules/daybook/store/journal/actions";
+import { getEntriesByTerm, getEntryById } from "@/modules/daybook/store/journal/getters";
+
 export const journalStateMock = {
   isLoading: false,
   entries: [
@@ -16,4 +19,21 @@ export const journalStateMock = {
       text: "Asinto está haciendo el curso",
     },
   ],
+};
+
+export const mockedJournalStore = {
+  namespaced: true,
+  state: () => ({
+    loading: false,
+    entries: journalStateMock.entries,
+  }),
+  getters: {
+    getEntriesByTerm: getEntriesByTerm,
+    getEntryById,
+  },
+  actions: {
+    updateEntry: updateEntry,
+    deleteEntry: deleteEntry,
+    createEntry: createEntry,
+  },
 };

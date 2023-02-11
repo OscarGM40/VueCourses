@@ -48,7 +48,7 @@ import { uploadImage } from "../../../helpers/uploadImage";
 import Swal from "sweetalert2";
 
 export default {
-  name:"EntryView",
+  name: "EntryView",
   props: {
     id: {
       type: String,
@@ -68,8 +68,8 @@ export default {
   methods: {
     ...mapActions("journal", ["updateEntry", "createEntry", "deleteEntry"]),
     loadEntry() {
-      this.file=null;
-      this.localImage=null;
+      this.file = null;
+      this.localImage = null;
       let entry;
       if (this.id === "new") {
         entry = {
@@ -87,7 +87,7 @@ export default {
     async saveEntry() {
       this.entry.picture = await uploadImage(this.file);
 
-      new Swal({
+      Swal.fire({
         title: "Espere, por favor",
         allowOutsideClick: false,
       });
@@ -102,10 +102,10 @@ export default {
         Swal.fire("Guardado", "Entrada registrada con éxito", "success");
         return this.$router.push({ name: "entry", params: { id } });
       }
-      this.file=null;
+      this.file = null;
     },
-    onDeleteEntry() {
-      Swal.fire({
+    async onDeleteEntry() {
+      const { isConfirmed } = await Swal.fire({
         title: "¿Está seguro que desea borrar la entrada?",
         text: "You won't be able to revert this!",
         icon: "warning",
@@ -113,14 +113,13 @@ export default {
         confirmButtonColor: "#3085d6",
         cancelButtonColor: "#d33",
         confirmButtonText: "Si,borra la entrada",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          this.deleteEntry(this.entry.id).then(() => {
-            Swal.fire("Entrada borrada!", "La entrada ha sido borrada", "success");
-            this.$router.push({ name: "no-entry" });
-          });
-        }
       });
+      
+      if (isConfirmed) {
+        await this.deleteEntry(this.entry.id);
+        this.$router.push({ name: "no-entry" });
+        Swal.fire("Entrada borrada!", "La entrada ha sido borrada", "success");
+      }
     },
     onSelectImage(event) {
       const file = event.target.files[0];
