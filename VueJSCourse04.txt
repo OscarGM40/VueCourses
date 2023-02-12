@@ -1,0 +1,269 @@
+				SECCION 14 COMPOSITION API -BASES
+
+No es que Vue fuera malo hasta la versión dos,pero cuando sacaron la Compositions API(el cual es como lo mejor de Angular y de React) se abrieron muchas puertas a la hora de reutilizar código(una Composable Function es como un hook de React).También veremos los mixins(aunque están en desuso).
+En esta API la forma de compartir esa reusabilidad es mediante un mixin.Un mixin no es más que un objeto que tiene todo lo que necesite compartir(como ciclos de vida como el mounted,etc).Despues se pondría en cada componente que querramos.Sin embargo hay muchos problemas con estos mixins,ya que aparece mucha información de la nada.
+Además desde un mismo componente puedo llamar a varios mixins,inclusive con el mismo nombre.Parece que es algo que irán puliendo.Además no se les puede mandar argumentos iniciales.
+Por todo esto los veremos sólo superficialmente.
+En esta API han cambiado muchas cosas como la data o los lifecycles(que fueron renombrados),objetos reactivos,todo esto ahora parece que va embebido en una función setup.
+NOTA: los lifecycles simplemente se les agregó el prefijo 'on'( de 'mounted' a 'onMounted')
+
+Veremos lo siguiente:
+1- Objectos reactivos
+2- Ref vs Reactive
+3- DevTools
+4- Router composable functions
+5- Lifecycle hooks
+6- keep-alive
+7- Watchers
+8- Composable functions
+9- Props
+10- Peticiones http
+11- Exposición del problema y necesidad del Composition API
+12- HTML Refs en CompositionAPI
+13- Router lifecycle hooks
+
+Esta sección tiene por objetivo que repasemos todo lo que hemos hecho hasta el momento usando el Options API, pero ahora con el Composition API, en la sección hay varias exposiciones que te ayudarán a comprender mejor el tema.
+
+			VIDEO 222 INTRODUCCION AL COMPOSITION API
+
+El composition API es una nueva forma de trabajar dentro de Vue.Viene por defecto en cualquier aplicación de Vue 3,pero en Vue 2 habría que instalarlo con:
+>yarn add @vue/composition-api
+Sin embargo,sólo se recomienda si hubiera problemas con la reutilización de código en esa app de Vue 2,aunque se recomienda buscar soluciones con lo que ofrezca Vue2.
+NOTA: el composition API es opcional,se podria trabajar como hasta ahora en Vue3 
+IMPORTANTE: esta API intenta solucionar el mezclar lógica de negocio en el componente(por ejemplo un componente que tenga relación con Productos y Usuarios va a terminar mezclando en la data,en los methods,en las computed,... ambas entidades.
+
+Los mixins son una solución que brinda Vue al problema de mezclar data(siempre han existido).Sin embargo el compositions API soluciona este mismo problema de una manera genial.Ejemplo:
+const myMixin = {
+  created(){ console.log('mixin hook called')}
+}
+Y ahora sería usarlo asi(en un componente ??:
+({mixins:[myMixin], created(){ console.log(' component hook called') } });
+Esto daría dos impresiones por consola(no entiendo esto)
+
+Los principales problemas de los mixins son:
+  - Los mixins son propensos a errores y conflictos(hay prioridad entre ellos)
+  - Las propiedades y métodos parece que aparecen de la nada,teniendo acceso a propiedades que no se sabe de donde salieron
+  - Reusabilidad limitada(dado que no se pueden pasar argumentos).Esto si que parece determinante para no usarlos 
+
+Para solucionar todo esto tenemos el compositions API.Esta API se ve claramente porque tenemos un nuevo método llamada setup() del que cuelga todo.Podría considerarse como un nuevo ciclo de vida en el componente el cual se ejecuta antes que el created o el onMounted(pero despues del beforeCreate).Se ejecuta antes de montar el DOM tmb entiendo,en el mero primer instante que se empiece a hacer algo en ese componente(pero despues de ese hook,investigar más sobre esto.
+
+setup(props){
+  data <- ahora ya ni siquiera tiene por que ser reactivo todo
+  methods
+  computed
+  watch
+  emits
+
+IMPORTANTE: fijate que yo ya he hecho todas las aplicaciones en Vue3 usando el OptionsAPi y no vi ni un warning.Fijate tmb que en la template no hay cambios
+
+<script>
+import {ref} from 'vue' <- ref permite crear variables reactivas
+
+export default {
+  components: { PokemonOptions, PokemonPicture }, <- esto no cambia
+  setup(){
+    const pokemonArr = ref([])
+    const pokemon = ref(null)
+    const showPokemon = ref(false)
+    const showAnswer = ref(false)
+    const message = ref('');
+   
+    const mixPokemonArray = async () => {
+      pokemonArr.value = await getPokemonOptions() <- servicio externo  
+      const rndInt = Math.floor(Math.random() * 4);
+      pokemon.value = pokemonArr.value[rndInt] <- fijate en el uso de ref.value para asignar o acceder al valor de esas variables reactivas
+    }
+    mixPokemonArray() < -inmed iatamente despues llamamos a la función(en React sería dentro de un efecto(cuantas veces se llamaría asi ??)
+
+   return { <- en el return debo devolver todo lo que quiero exponer al template(fijate que devuelvo métodos y propiedades) 
+     message,
+     pokemon,
+     showPokemon,
+     
+    checkAnswer(selectedId){
+      showPokemon.value = true
+      ....
+   }
+    newGame(){
+      showPokemon.value = false
+      ...
+   }
+  } <- fin del return
+ 
+IMPORTANTE: fijate que ya no se usa 'this'.This apunta al objeto global que está encima del setup(que no se qué es)
+NOTA: Fernando muestra despues como ni siquiera va a definir todo esto en el cmp,sino que va a usar un Composable(un hook de React) para llamar a todo.Desde luego tiene una pinta increible.Fijate que al usar Composables/hooks tenemos un nivel de abstracción tal que podemos reutilizar prácticamente cualquier pedazo de código
+Desde luego tiene una pinta genial esta API.
+
+		VIDEO 224 BONUS - ATAJOS
+
+Video donde nos muestra el mismo PDF que ya usamos y explica que las dos primeras paginas es la OptionsAPI y despues ya es documentación sobre la compositions API(hojas 3 y 4).Recuerda que algunos lifecycles ya no existen y que todos los que si existan se les prefijó un 'on'(onMounted en vez de mounted).
+
+		VIDEO 225 BASES COMPOSITION API - INICIO DE UN PROYECTO CON LA API COMPOSITIONS
+
+Realmente es lo mismo que hemos hecho hasta ahora para crear una app(vue create <app-name>),sólo que esta vez selecciono el router y el store.
+NOTA: recuerda navegar por el name de cada ruta(para ello hay que hacer un v-bind a la propiedad to en el router-link)
+<router-link to="/about">About</router-link> <- mala idea hardcodear la ruta
+<router-link :to="{name: 'counter'}">Counter</router-link> <- mejor usar el name y que compute a lo que sea
+
+Recuerda también que tengo que usar un <router-view>.Esto es un componente para mostrar la ruta actual(mientras no lo ponga no veré las rutas)
+** Esto necesita saber donde mostrarse **
+<nav>
+   <router-link :to="{name:'home'}">Home</router-link> |
+   <router-link :to="{name:'about'}">About</router-link> |
+   <router-link :to="{name:'counter'}">Counter</router-link>
+</nav>
+
+<router-view /> <- se mostrarán justo debajo(un router-view por cada nivel de rutas de la app)
+
+      VIDEO 226 COUNTER USANDO COMPOSITION API
+
+Fijate que hay algunas props que aún deben de quedar afuera del nuevo método setup(el name,las props o lo que emita con emits):
+
+export default {
+  name:'Counter',
+  props: {},
+  emits:[],
+
+  setup(){ }
+}
+
+Practicamente todo lo demás va dentro del setup.Simplemente creemos un contador y sus dos métodos para incrementar/decrementar:
+<template>
+  <h1>Counter View</h1>
+  <h2>{{ counter }}</h2>
+  <button @click="increment">+1</button>
+  <button @click="decrement">-1</button>
+</template>
+<script>
+import { ref } from "vue";
+
+export default {
+  name: "counter",
+  props: {},
+  emits: [],
+
+  setup() {
+    const counter = ref(5);
+
+    const increment = () => {
+      return counter.value++;
+    };
+
+    const decrement = () => {
+      return counter.value--;
+    };
+    return {
+      counter,
+      increment,
+      decrement,
+    };
+  },
+};
+
+NOTA: no es muy común definir las funciones en el componente,fijate que es totalmente innecesario(ya que las puedo definir donde quiera e inyectarlas/importarlas,etc).Además que complica la visión del componente:
+  setup() {
+    const counter = ref(5);
+    return {
+      counter,
+      increment: () => counter.value++, <- se refiere a esto
+      decrement: () => counter.value--,
+    };
+  },
+};
+Fijate que esto lo puedo hacer en React,tmb,en cualquier return,es sólo Javascript
+Desde este punto vamos a tratar de crear el código lo más reutilizable posible.
+
+      VIDEO 227 PRIMER COMPOSABLE - USE COUNTER
+
+Fijate que es un simple hook,lo importante es definir la propiedad con ref para que sea reactiva:
+
+import {ref} from "vue";
+
+export const useCounter = (initialValue) => {
+  const counter = ref(initialValue)
+  return {
+    counter,
+    increment: () => counter.value++,
+    decrement: () => counter.value--,
+  }
+}
+
+Y ahora solo es llamar al hook en el cmp(y ejecutarlo,ojo,para que retorne lo que tenga definido,luego llamo a la ejecución del hook):
+
+setup(){
+  const { counter,increment, decrement } = useCounter(5);
+  return { counter, increment, decrement};
+}
+Fijate como hemos dejado todo en dos líneas,y totalmente reusable esta lógica.
+
+NOTA: esto no se puede hacer con un mixin ya que lleva un argumento(muy prehistoric estos mixins)
+TIP: el nombre técnico es Composable Functions
+
+      VIDEO 229 REF VS REACTIVE
+
+Una de las cosas más importantes que debemos saber es la diferencia entre crear una prop reactiva con ref o con reactive.Si vemos el siguiente código parece que son iguales:
+
+<template>
+  <div class="home">
+    <h1>Reactive vs Ref</h1>
+    <h3>{{ ironman }}</h3>
+    <h3>{{ hulk }}</h3>
+  </div>
+</template>
+
+<script>
+import { reactive, ref } from "vue";
+
+export default {
+  name: "home",
+  props: {},
+  emits: [],
+
+  setup() {
+    const ironman = ref({ name: "Tony", age: 50 });
+    const hulk = reactive({ name: "Bruce", age: 45 });
+
+    return {
+      ironman,
+      hulk
+    }
+  },
+};
+</script>
+
+De echo,si ahora creamos dos funciones que muten ese objeto reactivo de esta forma y las llamamos:
+  setup() {
+    const ironman = ref({ name: "Tony", age: 50 });
+    const hulk = reactive({ name: "Bruce", age: 45 });
+
+    return {
+      ironman,
+      hulk,
+      changeIronman: () => {
+        ironman.value.name = "Tony Stark";
+        ironman.value.age = 55;
+      },
+      changeHulk: () => {
+        (hulk.name = "Bruce Banner"), (hulk.age = 44);
+      },
+    };
+  },
+
+  <button @click="changeIronman">Change Ironman</button>
+    <button @click="changeHulk">Change Hulk</button>
+
+Incluso cambian los dos.Entonces,para que utilizar ref si me obliga a usar .value todo el rato?.
+La principal diferencia es que reactive solo funciona con objetos.Si tuviera un primitivo o un arreglo no habria cambiado.Desde luego esto es determinante,si
+
+NOTA: esto es asi porque reactive funciona como una constante y no permite su reasignacion.
+
+    const ironmanIsAlive = reactive(false);
+    const hulkIsAlive = ref(true);
+
+    const changeStatus = () => {
+      ironmanIsAlive = !ironmanIsAlive;
+      hulkIsAlive.value = !hulkIsAlive.value;
+    };
+
+
+
