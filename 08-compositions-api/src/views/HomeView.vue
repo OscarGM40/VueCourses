@@ -29,8 +29,8 @@ export default {
     const hulkIsAlive = ref(true);
 
     const changeStatus = () => {
-      
-      ironmanIsAlive = !ironmanIsAlive;
+      // esto es una reasignación de una constante y no hará nada(al menos no rompe la app,pero no va a hacer nada)
+      // ironmanIsAlive = !ironmanIsAlive;
       hulkIsAlive.value = !hulkIsAlive.value;
     };
 

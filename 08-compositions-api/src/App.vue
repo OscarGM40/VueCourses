@@ -2,9 +2,17 @@
   <nav>
     <router-link :to="{ name: 'home' }">Home</router-link> |
     <router-link :to="{ name: 'about' }">About</router-link> |
-    <router-link :to="{ name: 'counter' }">Counter</router-link>
+    <router-link :to="{ name: 'counter' }">Counter</router-link> |
+    <router-link :to="{ name: 'users' }">Usuarios</router-link> |
+    <router-link :to="{ name: 'pokemon-search' }">Buscar</router-link> |
+    <router-link :to="{ name: 'todo' }">Todo List</router-link>
   </nav>
-  <router-view />
+
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
 </template>
 
 <style>
