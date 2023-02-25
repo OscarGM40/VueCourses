@@ -685,3 +685,155 @@ Puntualmente veremos:
 
 Hay dos ejercicios sobre los scoped slots, el primero podría parecer inútil debido a que es puramente ilustrativo, el segundo ejercicio tiene por objetivo ver un uso real del mismo.
 
+    VIDEO 244 CONFIGURAR EL STATE/STORE INICIAL
+
+Declaramos un state inicial cualquiera de momento en el store/index.js.Fijate que no vamos a modularizar el store aún:
+export default createStore({
+  state: {
+    todos: [
+      { id: "1", text: "Recolectar las piedras del infinito", completed: false },
+      { id: "2", text: "Piedra del alma", completed: true },
+      { id: "3", text: "Piedra de poder", completed: true },
+      { id: "4", text: "Piedra de realidad", completed: false },
+      { id: "5", text: "Conseguir nuevos secuaces competentes", completed: false },
+    ],
+  },
+  getters: {},
+  mutations: {},
+  actions: {},
+  modules: {},
+});
+TIP. fijate que realmente no hubo ningun cambio aún al cambiar de API.
+
+Recuerda que podemos acceder de forma rápida mediante el objeto global $store
+ <h4>Tareas: {{ $store.state.todos.length }}</h4>
+Sin embargo no es recomendable este approach y usaremos getters.
+
+        VIDEO 245 VUEX GETTERS - COMPOSITION API
+
+NOTA: para acceder al store dentro del setup la Composition API expone el hook useStore:
+
+import { useStore } from 'vuex'
+
+export default {
+  setup () {
+    const store = useStore()
+  }
+}
+
+Ya con este primer paso puedo acceder a los getters que haya definido y meter el valor en una computed property(que viene de vue ésta).Ejemplo:
+
+import { computed } from 'vue';
+import { useStore } from 'vuex';
+
+export default {
+  setup(){
+    const store = useStore();
+    const products = computed(() => store.getters['cart/cartProducts'] );
+    return {
+      products <- mando el getter a la template
+    }
+  }
+}
+TIP: fijate que si imprimo todo el store veré que expone la funciones para el commit o el dispatch,aparte de los getters,las mutations,las actions,observables,modules,etc.Obviamente es un objeto con todo.Creamos pues un getter en el store y lo metemos en una computed en el componente
+
+NOTA: los getters tienen gran accesibilidad por su propia naturaleza.Pueden acceder al store delmodulo en el que estén,a otros getters y al rootStore:
+
+  getters: {
+    // name(stateOfThisModule,otherGetters,mainState)
+    // en este caso el state del modulo es el general,luego el arg 1 y 3 son lo mismo
+    pendingTodos(state,getters,rootState){ <- gran accesibilidad
+      return state.todos.filter( todo => !todo.completed)
+    }
+  },
+
+  Obviamente tiene todo el sentido del mundo que tengan una gran accesibilidad al resto del store.
+
+        VIDEO 246 TAREA - CREAR Y USAR GETTERS
+
+Crear dos getters más.Fijate que puedo usar una arrow function perfectamente:
+  allTodos(state,getters,rootState){
+      return state.todos
+    },
+  completedTodos(state,getters,rootState){
+      return state.todos.filter( todo => todo.completed)
+  }
+O con arrow functions:
+  allTodos: (state,getters,rootState) => state.todos;
+
+      VIDEO 247 DISEÑO DE LA LISTA DE TAREAS - MAQUETACIÓN
+
+  Fijate que para usar una clase condicionalmente es {'clase':condicion}.Ejemplo:
+
+   <li :class="{'completed':todo.completed}" v-for="todo in all" :key="todo.id">{{ todo.text }}</li>
+   Si quisiera usar un ternario tengo que usar un arreglo en vez de un objeto además.
+
+        VIDEO 248 GETTERS COMO UNA FUNCION
+
+Vamos a crear un getter que nos permita filtrar en base a la propiedad que recibamos como argumento( que será all | pending | completed).Fijate que hay que usar una closure para poder recibir ese argumento,ya que está ya definido los args de la primera función:
+
+// IMPORTANTE: para poder usar un getter como una funcion tengo que usar una closure,haciendo que la primera funcion que accedia al state retorne otra función
+getTodosByTab: (_,getters) => (tab) => {
+  switch(tab){
+    case 'all': return getters['allTodos'] 
+    // ojo que son referencias a las funciones,y no hay que llamarlas para nada
+    case 'completed': return getters.completedTodos
+    case 'pendingTodos': return getters.pendingTodos
+  }
+}
+
+Y para pasarle ese argumento simplemente ejecutamos la función:
+* en el return del setup *
+return{
+  getTodosByTab: computed(() => store.getters["getTodosByTab"](currentTab.value)),
+}
+Desde luego Vue tiene cosas muy profesionales e interesantes.No entiendo porqué no se usa más.
+
+      VIDEO 249 COMITTING MUTATIONS IN COMPOSITION API
+
+  Creamos una mutation que cambie el completed en base al id asi que habrá que barrer antes:
+    toggleTodo(state, id) {
+      const todoIdx = state.todos.findIndex( todo => todo.id === id);
+      state.todos[todoIdx].completed = !state.todos[todoIdx].completed
+    },
+
+En el html llamamos en el dblclick a una función:
+    <li
+        :class="{ completed: todo.completed }"
+        v-for="todo in getTodosByTab"
+        :key="todo.id"
+        @dblclick="() => toggleTodo(todo.id)"
+      >
+
+Y esa función simplemente llamará al commit:
+    const toggleTodo = (id) => {
+      store.commit("toggleTodo", id);
+    };
+NOTA: fijate que podia llamar a la fn asi tmb:
+ @dblclick="toggleTodo(todo.id)"
+
+      VIDEO 250 COMPOSABLE USE TODO
+
+Realmente este composable es muy sencillo,ya que solo bastaba con cortar y pegar:
+import { useStore } from "vuex";
+import { computed, ref } from "vue";
+
+const useTodos = () => {
+  const store = useStore();
+  const currentTab = ref("all");
+
+  return {
+    pending: computed(() => store.getters["pendingTodos"]),
+    currentTab,
+    getTodosByTab: computed(() => store.getters["getTodosByTab"](currentTab.value)),
+    toggleTodo: (id) => store.commit("toggleTodo", id),
+  };
+};
+
+export default useTodos;
+
+IMPORTANTE: un composable se supone que tiene que intentar abstraer tanta lógica como pueda.No tiene sentido no meter la llamada al hook useStore en el composable,debo ser preciso y concienzudo con esto y sacar todo lo que pueda al composable,como en este caso.Fijate que además en el archivo ese tengo visión sobre todo realmente,nada me impide usar una funcion de vuex o de vue,etc.Genial.Ahora el componente queda limpísimo y el composable totalmente reutilizable
+
+      VIDEO 251 INTRODUCCIÓN A LOS SLOTS
+
+      
