@@ -10,6 +10,7 @@ const useTodos = () => {
     currentTab,
     getTodosByTab: computed(() => store.getters["getTodosByTab"](currentTab.value)),
     toggleTodo: (id) => store.commit("toggleTodo", id),
+    addTodo: (desc) => store.commit("createTodo", desc),
   };
 };
 

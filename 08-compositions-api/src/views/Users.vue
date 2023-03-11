@@ -5,13 +5,11 @@
   <h5 v-if="errorMsg">{{ errorMsg }}</h5>
 
   <div v-if="users.length > 0">
-    <ul>
-      <!-- fijate que es una destructuración normal(es Javascript simplemente)luego es {prop,prop2} in users -->
-      <li v-for="{ first_name, last_name, id, email } in users" :key="id">
-        <h4>{{ first_name }} {{ last_name }}</h4>
-        <h6>{{ email }}</h6>
-      </li>
-    </ul>
+  <!-- fijate que :users es imprescindible o "users" será un string.Siempre que mande props debo usar :prop="value" para mandar JS -->
+     <UserList :users="users" v-slot:user="{user}">
+      <h5>{{ user.first_name }} {{ user.last_name }}</h5>
+      <span>{{ user.email }}</span>
+     </UserList>
   </div>
 
   <button @click="prevPage" v-if="currentPage > 1">Atras</button>
@@ -20,21 +18,14 @@
 </template>
 
 <script>
-
 import { useUsers } from "@/composables/useUsers";
+import UserList  from "@/components/UserList.vue";
 
 export default {
   name: "users",
-
+  components: { UserList },
   setup() {
-    const {
-      users,
-      isLoading,
-      currentPage,
-      errorMsg,
-      prevPage,
-      nextPage,
-    } = useUsers();
+    const { users, isLoading, currentPage, errorMsg, prevPage, nextPage } = useUsers();
 
     return {
       users,
@@ -43,7 +34,7 @@ export default {
       errorMsg,
       prevPage,
       nextPage,
-    }; 
+    };
     // return { ...useUsers()}
   },
 };

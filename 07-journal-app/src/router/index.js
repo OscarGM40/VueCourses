@@ -1,28 +1,33 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import dayBookRoutes from '../modules/daybook/router'
+import { createRouter, createWebHashHistory } from "vue-router";
+import HomeView from "../views/HomeView.vue";
+import dayBookRoutes from "../modules/daybook/router";
+import authRoutes from "../modules/auth/router";
 
 const routes = [
   {
-    path: '/',
-    name: 'home',
-    component: HomeView
+    path: "/",
+    name: "home",
+    component: HomeView,
   },
   {
-    path: '/about',
-    name: 'about',
+    path: "/about",
+    name: "about",
     // this generates a separate chunk (about.[hash].js) for this route
-    component: () => import(/* webpackChunkName: "about" */ '../views/AboutView.vue')
+    component: () => import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
   },
   {
-    path: '/daybook',
-    ...dayBookRoutes
-  }
-]
+    path: "/daybook",
+    ...dayBookRoutes,
+  },
+  {
+    path: "/auth",
+    ...authRoutes,
+  },
+];
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes
-})
+  routes,
+});
 
-export default router
+export default router;

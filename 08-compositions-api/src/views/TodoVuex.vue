@@ -29,14 +29,50 @@
       </li>
     </ul>
   </div>
+
+  <button @click="openModal">Crear todo</button>
+  <Modal v-if="isOpen" @click.self="closeModal">
+    <template v-slot:header>
+      <h2>Add todo</h2>
+    </template>
+
+    <template v-slot:body>
+      <form @submit.prevent="handleSubmit">
+        <input type="text" v-model="taskDesc" />
+        <br />
+        <br />
+        <button>Submit</button>
+      </form>
+    </template>
+
+    <template v-slot:footer>
+      <br />
+      <br />
+      <button @click="closeModal">Cerrar</button>
+    </template>
+  </Modal>
 </template>
 
 <script>
+import Modal from "@/components/Modal.vue";
 import useTodos from "../composables/useTodos";
+import { ref } from "vue";
 
 export default {
   name: "TodoVuex",
+  components: { Modal },
   setup() {
+    const isOpen = ref(false);
+    const taskDesc = ref("");
+
+    const { currentTab, pending, getTodosByTab, toggleTodo, addTodo } = useTodos();
+
+    const handleSubmit = () => {
+      if (!taskDesc.value) return;
+      addTodo(taskDesc.value);
+      taskDesc.value = "";
+      isOpen.value = false;
+    };
     /*     const store = useStore();
 
     const currentTab = ref("all");
@@ -51,13 +87,16 @@ export default {
       toggleTodo: (id) => store.commit('toggleTodo',id),
     }; */
 
-    const { currentTab, pending, getTodosByTab, toggleTodo } = useTodos();
-
     return {
       currentTab,
       pending,
       getTodosByTab,
       toggleTodo,
+      isOpen,
+      closeModal: () => (isOpen.value = false),
+      openModal: () => (isOpen.value = true),
+      handleSubmit,
+      taskDesc,
     };
   },
 };

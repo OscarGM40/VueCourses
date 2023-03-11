@@ -836,4 +836,338 @@ IMPORTANTE: un composable se supone que tiene que intentar abstraer tanta lógic
 
       VIDEO 251 INTRODUCCIÓN A LOS SLOTS
 
-      
+Para entender los slots tenemos que entender que es el slot-content y el slot-outlet.Son parecidos a los children,el slot-outlet es la etiqueta donde irá el slot-content(que puede ser cualquier cosa,tanto HTML como funcionalidad,igual que los children)
+
+Por ejemplo:
+<button class="fancy-btn">
+  <slot></slot> <- aqui va el contenido
+</button>
+
+Ese contenido podría ser algo asi(fijate que esto parece que es solo para HTML):
+<FancyButton>
+  Click me!
+</FancyButton>
+
+Al final sería como haber puesto esto
+<button class="fancy-btn">
+  Click me!
+</button>
+
+Si nos fijamos bien en la naturaleza de Vue,ya hemos estado usando los slots en todos lados,por ejemplo en el router-view(no confundir con v-slot):
+
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+Siguiendo con todo esto creamos la ruta /slots y el componente Modal
+
+      VIDEO 252 SLOTS Y NAMED SLOTS
+
+ Estos dos conceptos son fundamentales.Si nos fijamos en el contenido del componente Modal,podemos ver que no tiene sentido hardcodearle el contenido,debería ser algo dinámico que se pudiera pasar desde el padre(nos referimos a todo su HTML).
+
+ Esto no tiene sentido,no es una modal reutilizable:
+ <template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <h1>Hola mundo</h1>
+    </div>
+  </div>
+</template>
+
+NOTA: recuerda que desde el padre puedo usar varias nomenclaturas para llamar a un componente de Vue:
+
+* Todas estas harian lo mismo
+<Modal></Modal> o <modal></modal> o <modal /> o <Modal />
+
+Bien,digamos que desde esta llamada queremos pasarle el siguiente Html al componente hijo:
+<Modal>
+  <h2>titulo de la modal</h2>
+  <p>contenido de la modal</p>
+  <button>Cerrar</button>
+</Modal>
+¿Como hacemos esto?¿Como hacemos que el componente hijo acepte contenido html dinámico?
+Pues bien,simplemente hay que definir la zona en el hijo mediante la etiqueta reservada <slot />(ojo que es en minúsculas):
+
+* En el componente hijo:
+<template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <slot></slot>
+    </div>
+  </div>
+</template>
+TIP: esto permite no solo mandar estructura HTML sino también funcionalidades.Es la contrapartida a los children de React pues
+
+NOTA: se le puede dar un contenido fallback a un <slot></slot> simplemente metiendo algo en su interior:
+
+<slot>Esto aparecerá si no hay contenido</slot> <- interesante que este automatizado ya
+
+IMPORTANTE: las etiquetas slot no aceptan una clase de CSS,para poder estilizar su contenido hay que crear un div wrapper:
+
+   <slot>
+    <div class="center">Esto aparecerá si no hay contenido</div>
+   </slot>
+
+* Algo muy importante que no hemos visto hasta ahora es que en el setup estamos recibiendo ciertos argumentos opcionales.Sin embargo esto de momento no tiene nada que ver con la solución:
+
+export default {
+  setup(properties,context) {},
+};
+
+NOTA: pudiera ser que queramos definir un orden para ese Html dinámico a pasar al hijo.Para esto tenemos los named slots.Son exactamente lo mismo,solo que llevan un nombre(mediante la propiedad name):
+
+  <slot name="header" />
+  <slot name="body" />
+  <slot name="footer" />
+
+
+  En el padre tenemos que usar el componente agrupador <template v-slot:name></template> junto al name de ese slot:
+
+En el padre RandomPage.vue al llamar a la Modal:
+
+    <Modal title="Hola mundo">
+    <template v-slot:body>
+      <p>
+        Lorem ipsum dolor, sit amet consectetur adipisicing elit. Maxime praesentium
+        molestiae rem velit corporis facilis, molestias voluptatum accusamus quibusdam
+        aliquid repudiandae cupiditate blanditiis repellendus deleniti beatae dolorum at
+        omnis obcaecati?
+      </p>
+    </template>
+
+    <template v-slot:footer>
+      <button>Cerrar</button>
+    </template>
+    <template v-slot:header>
+      <h2>titulo del modal</h2>
+    </template>
+  </Modal>
+
+  NOTA:fijate que da igual el padre,lo que importa es el receptor,el hijo y el orden definido:
+
+* En el hijo Modal.vue
+  <template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <slot name="header" />
+      <hr />
+      <slot name="body" />
+      <div>Aqui viene el footer</div>
+      <slot name="footer" />
+    </div>
+  </div>
+</template>
+
+De esta forma irá siempre el header,body y footer,además que entiendo será opcional cada subslot.Fijate incluso que podemos definir Html entre slots(que obviamente será el mismo para todas las llamadas a este componente).Sin embargo falta darle funcionalidad a todo esto(y por ello poder pasarla entre padre/hijo ??)
+
+    VIDEO 253 FUNCIONALIDAD BÁSICA DE NUESTRA MODAL
+
+En este punto es importante entender que Vue va a pasar al hijo por referencia todo el objeto y por ello puedo declarar un método en el padre que va a pasar al hijo.Sabiendo esto podemos gestionar todo esto en el padre:
+
+Enel padre:
+<button @click="openModal">Abrir modal</button>
+
+<Modal v-if="isOpen">
+  <template v-slot:header>
+    <h2>Titulo de la modal</h2>
+  </template>
+  <template v-slot:body>
+    <p>random content</p>
+  /template>
+  <template v-slot:footer>
+    <button @click="closeModal">Cerrar modal</button>
+  </template>
+</Modal>
+
+
+export default{
+  components:{Modal},
+  setup(){
+    const isOpen = ref(false);
+    return {
+      isOpen,
+      openModal: () => isOpen.value= true,
+      closeModal: () => isOpen.value= false,
+    }
+  }
+}
+
+Esto es algo genial por parte de Vue,sin ninguna duda.Sin embargo, ahora queremos que al clickar en el fondo se cierre sola la modal(fijate que el componente Modal es toda la pagina):
+
+<template>
+  <div class="modal-background fade-in">
+
+  El css es:
+  .modal-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+
+  Luego ocupa todo.Es decir,queremos emitir cuando alguien haga click en ese div(recuerda el objeto global $emit).Desde luego Vue tiene muchas cosas geniales:
+
+<div class="modal-background fade-in" @click="$emit('on:close')>
+
+NOTA: en la template sigo teniendo acceso al objeto global $emit,pero no asi en el setup ahora,ya que no tengo acceso a this(en realidad apunta a otra parte simplemente).Ya veremos como emitir eventos desde el setup del hijo al padre.
+
+IMPORTANTE: es bueno especificar/registrar qué es lo que emite un componente usando la propiedad emits que será un arreglo de ellos:
+
+<script>
+export default {
+  emits:['on:close'],
+  setup(props,context){}
+}
+</script>
+Esto ayuda a otros devs a ver de forma sencilla que ese componente emite eventos y además ayuda con el IntelliSense.Esta propiedad es de Vue 3.
+
+Una vez emitido desde el hijo nuestro custom event y registrado lo escuchamos en el padre con @name="fn".Obviamente llamamos al closeModal.
+
+<Modal v-if="isOpen" @on:close="closeModal">
+  ...rest of the modal
+</Modal>
+
+TIP: para afinar aún más podemos ver que ahora clickar en cualquier parte de la modal tmb la cierra(diria que el fkn evento ha ido pasando hacia abajo).
+Esto no deberia ser asi,solo deberia poder cerrarla el boton y clickar afuera.Para solucionar esto tenemos el modificador de evento 'self':
+
+self: only trigger handler if event was dispatched from this element.
+<div class="modal-background" @click.self="$emit('on:close')> <- te cagas con Vue
+
+NOTA: fijate que lo podia haber echo desde el padre tmb sin emitir un evento desde el hijo en el propio Componente(ya que eso va a ser el primer div).
+
+<Modal v-if="isOpen @click.self="closeModal">
+
+Sin embargo diria yo que solo vale porque ese <Modal></Modal> es el div
+
+TIP: recuerda que en Vue la diferencia entre un atributo y una prop es si esta definida en la propiedad props(luego esto es un atributo):
+
+<Modal v-if="isOpen" title="Hola mundo"></Modal>
+
+Pero en cuanto defina la prop title ya será una prop:
+
+export default {
+  props:{
+    title: {
+      type:string,
+      required:true
+    }
+  }
+}
+Mientras no haga esto en el hijo es un atributo.Los atributos los veo en el context.attrs,las props en el otro argumento:
+
+export default {
+  emits:['on:close'],
+  setup(props,context) {
+    console.log({props})
+    console.log({context})
+  },
+};
+Debo tener claro la diferencia entre atributo y property,la cual es muy sencilla.
+Desde el context también tengo acceso a $emit(solo de lectura o de lectura y escritura)
+En el siguiente video veremos como pasar información desde el Slot(desde el hijo) y que el padre pueda reaccionar basandose en esa información que el hijo le pasa.
+
+         VIDEO 254 SCOPED SLOTS
+
+IMPORTANTE: esta funcionalidad la podemos ver aqui:
+
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+  El <slot /> que es el <component /> es el que informa al padre,al router-view y no al revés como parecia que explicaba FH.Esto es algo muy común en vuetify o quasar.
+
+  NOTA: para realizar esto debo mandar propiedades en el <slot></slot> en el hijo(fijate que :newTitle es porque necesitamos el v-bind,no así con hola):
+
+      <div class="modal-container">
+      <slot name="header" />
+      <slot name="body" />
+      <slot name="footer" />
+
+      <slot name="exposed" :newTitle="newTitle" hola="mundo"></slot> <- este slot manda una prop al padre,ojo
+    </div>
+
+Ojo,para recibirlas en el padre siempre vienen en un objeto llamado 'slotProps'(es decir,estará en el padre en slotProps.newTitle):
+
+  <template v-slot:exposed="slotProps">
+      <h2>{{ slotProps }}</h2>
+    </template>
+
+Si nos fijamos de nuevo en el ejemplo con el router-view vemos que estamos desestructurando el objeto slotProps:
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+Asi pues,nada nos impide a nosotros sacar las props hola y newTitle:
+  <template v-slot:exposed="{newTitle,hola}">
+
+    VIDEO 255 TAREA - AGREGAR UN NUEVO TODO
+
+Fijate que el v-model es fundamental,asi como los modificadores de eventos:
+
+  <button @click="openModal">Crear todo</button>
+  <Modal v-if="isOpen" @click.self="closeModal">
+    <template v-slot:header>
+      <h2>Add todo</h2>
+    </template>
+
+    <template v-slot:body>
+      <form @submit.prevent="handleSubmit">
+        <input type="text" v-model="taskDesc" />
+        <br />
+        <br />
+        <button>Submit</button>
+      </form>
+    </template>
+
+    <template v-slot:footer>
+      <br />
+      <br />
+      <button @click="closeModal">Cerrar</button>
+    </template>
+  </Modal>
+
+      VIDEO 256 SCOPED SLOTS APLICADO
+
+Fijate que esto realmente puede que se use bastante en código real.
+Podemos crearnos un slot para un ItemList(donde el componente será la colección entera pero cada slot es un item):
+
+* Fijate que users es una prop requerida,nunca puede ser sólo un atributo ya:
+
+<template>
+  <ul>
+    <slot v-for="user in users" :key="user.id" name="user" :user="user" />
+  </ul>
+</template>
+<script>
+  export default {
+    props:{
+      users:Array
+    }
+  }
+</script>
+
+Y ahora rescatamos cada slot con el v-slot:name="slotProps desde el padre:
+
+<div v-if="users.length > 0">
+  <user-list :users="users" v-slot:user="slotProps"></user-list>
+
+
+Obviamente dado que sabemos que tenemos acceso a slotProps.user desestructuramos,etc:
+
+  <div v-if="users.length > 0">
+  <!-- fijate que :users es imprescindible o "users" será un string.Siempre que mande props debo usar :prop="value" para mandar JS -->
+     <UserList :users="users" v-slot:user="{user}">
+      <h5>{{ user.first_name }} {{ user.last_name }}</h5>
+      <span>{{ user.email }}</span>
+     </UserList>
+  </div>
+
+  Muy interesante esto.Tiene pinta de usarse masivamente entre devs.
+
+  

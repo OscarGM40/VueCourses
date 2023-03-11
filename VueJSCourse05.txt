@@ -1,0 +1,214 @@
+    SECCION 16 AUTENTICACION  EN NUESTRA JOURNAL APP
+
+FH recomienda no mezclar la Options API con la Composition API,aunque lo vamos a hacer en esta sección dado que tenemos la app en la Options API.
+Colocaremos interceptores de axios en las rutas también.
+
+Esta sección tiene por objetivo que pongamos en práctica lo aprendido en el composition API en nuestra aplicación de diario. Puntualmente tocaremos los siguientes temas:
+
+1 -Vuex composables
+2- Custom composables para acceder al store
+3- Manejo de autenticación
+4- Guards aplicados
+5- Manejo de tokens
+6- Estado de la autenticación
+  a- Autenticando
+  b- Autenticado
+  c- No Autenticado
+7- Mutaciones dentro de composables
+8- Acciones dentro de composables
+9- Interceptores
+
+        VIDEOS 261-263
+
+Traer la template del zip y crear los componentes y sus rutas.
+En el video de crear el store fijate que los tengo que combinar con createStore:
+
+import { createStore } from 'vuex';
+import journalModule from '../modules/daybook/store/journal';
+import authModule from '@/modules/auth/store';
+
+const store = createStore({
+modules:{
+  journal: journalModule,
+  auth: authModule
+}
+})
+
+export default store
+
+Y cada xxxModule es un objeto que luce asi.:
+
+import state from './state';
+import * as actions from "./actions";
+import * as getters from "./getters";
+import * as mutations from "./mutations";
+
+const authModule = {
+  namespaced:true,
+  actions,
+  getters,
+  mutations,
+  state
+}
+
+export default authModule;
+
+    VIDEO 264 FORMULARIO - USE AUTH HOOK
+
+Fijate que sencillo es enganchar un formulario con Vue a una ref y disparar el Submit(desde luego es ridiculamente sencillo):
+<form>
+  <input v-model="userForm.name" .... /> <- campo cualquiera
+  <input v-model="userForm.email" .... />
+  <button @submit.="onSubmit"
+</form>
+
+setup(){
+  const userForm = ref({
+    name:"",
+    email:""
+  })
+  return {
+    userForm,
+    onSubmit: async() => handleSubmit
+  }
+}
+
+      VIDEO 265 OBTENER TOKEN DE ACCESO DE FIREBASE
+
+Habilitamos el modulo de Authentication,y elegimos custom email/password.Fijate que dado que es una app muy sencilla ni siquiera vamos a usar el firebase.config sino que vamos a apuntar a un endpoint que ya exponen ellos mandando una API_KEY.
+
+IMPORTANTE: el endpoint es "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=[API_KEY] luego el unico queryParam es 'key'
+
+NOTA:el endpoint es el mismo,mediante la api_key ya sabe que proyecto es(fijate que tengo que ir a configuracion de proyecto/Clave de API Web y copiar el token a mandar a ese endpoint).
+
+
+PASO UNO: Refactorizar la instancia de axios(luce asi):
+
+const authApi = axios.create({
+  baseURL: "https://identitytoolkit.googleapis.com/v1/accounts",
+  params: {
+    key: process.env.VUE_APP_FIREBASE_TOKEN,
+  },
+});
+
+export default authApi;
+
+IMPORTANTE: este endpoint es un POST quepide un body con estas tres propiedades:
+{
+  email:...
+  password:...
+  returnSecureToken: <- booleano que debo mandar a true para que devuelva el token que necesitamos
+}
+
+PASO DOS: creamos la accion asincrona:
+* En el actions.js de ese modulo
+export const createUser = async ({ commit }, user) => {
+  const { name, email, password } = user;
+
+  try {
+    const { data } = await authApi(":signUp", {
+      email,
+      password,
+      returnSecureToken: true, <- fijate en las tres props obligatorias
+    });
+    console.log(data)
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error.response.data.error.message  };
+  }
+};
+
+PASO TRES: la action la llamamos en el hook,que lo llamará el componente,etc:
+* Composable *
+export const useAuth = () => {
+  const store = useStore();
+
+  const createUser = async (user) => {
+    // ojo que es una accion asincrona y debo usar await
+    return await store.dispatch("auth/createUser", user);
+  };
+
+  return {
+    createUser,
+  };
+};
+
+    VIDEO 266 ACTUALIZAR EL DISPLAY NAME DEL USUARIO
+
+Si nos fijamos bien Firebase tiene un hueco para meter un Name a ese usuario, vamos a cambiarlo/mostrarlo tmb.Sin embargo el endpoint solo pedia un objeto con las props email,password y returnSecureToken.
+
+Para poder cambiar el perfil tenemos que actualizarlo,puedo ver en la documentación que aunque se haya logeado por custom pass puedo cambiar el displayName,la photoUrl y alguna cosa mas(muy interesante pues)
+
+IMPORTANTE: el endpoint esta vez es "https://identitytoolkit.googleapis.com/v1/accounts:update?key=[API_KEY]. Solo cambia el :signUp.
+
+De nuevo es un POST,sin embargo el objeto tiene otro tipado(ojo que siempre va a pedir un idToken correcto:
+{
+  idToken,
+  displayName?,
+  photoUrl?,
+  returnSecureToken?,
+  refreshToken?
+} <- el objeto a mandar en el update luce asi(solo el idToken required)
+
+ try {
+    const { data } = await authApi.post(":signUp", {
+      email,
+      password,
+      returnSecureToken: true,
+    });
+    
+    // para el update necesito mandar el idToken que me retorna un signUp exitoso(fijate que le puedo mandar un name y una foto,asin)
+    const { idToken } = data;
+
+    // y lanzo el update para el displayName
+    await authApi.post(":update", {
+      displayName:name,
+      idToken,
+    });
+ }
+
+      VIDEO 267 MUTATION LOGIN USER
+
+No puede ser más sencilla.Recuerda que es una mutation:
+
+export const loginUser = (state, { user, idToken, refreshToken }) => {
+  if (idToken) {
+    localStorage.setItem("idToken", idToken);
+    state.idToken = idToken;
+  }
+
+  if (refreshToken) {
+    localStorage.setItem("refreshToken", refreshToken);
+    state.refreshToken = refreshToken;
+  }
+
+  state.user = user;
+  state.status = "authenticated";
+};
+
+Y la action la llamará asi.Fijate que al estar en el mismo modulo me puedo ahorrar 'auth/loginUser':
+  delete user.password;
+  commit('loginUser',{user,idToken,refreshToken})
+
+    VIDEO 268 MENSAJE ERROR EN EL REGISTER
+
+Dado que ahora tenemos un ok:true o false como respuesta podemos informar al usuario del error.No solo eso, tambien debo redireccionar al usuario si es un registro exitoso.
+        
+  if(!ok) Swal.fire('Error',message,'error')
+  else router.push({name:'no-entry'})
+
+    VIDEO 269 ACTIONS -LOGIN DE USUARIO
+
+Practicamente es hacer lo mismo(ojo que cambia el final del endpoint,son diferentes todos y es ':signInWithPassword'):
+
+  try {
+    const { data } = await authApi.post(":signInWithPassword", {
+      email,
+      password,
+      returnSecureToken: true,
+    });
+
+NOTA: recuerda que el @submit.prevent lo lleva la etiqueta <form></form>
+
+      VIDEO 270 ACTUALIZAR EL DISPLAY NAME DE FIREBASE

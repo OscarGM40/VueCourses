@@ -1,4 +1,5 @@
 import { createStore } from "vuex";
+import {v4 as uuidv4} from 'uuid';
 
 export default createStore({
   state: {
@@ -40,9 +41,16 @@ export default createStore({
   mutations: {
     toggleTodo(state, id) {
       // console.log({idInMutation:id})
-      // porqué hay que iterar para que mute <-porque es un arreglo subnormal 
-      const todoIdx = state.todos.findIndex( todo => todo.id === id);
-      state.todos[todoIdx].completed = !state.todos[todoIdx].completed
+      // porqué hay que iterar para que mute <-porque es un arreglo subnormal
+      const todoIdx = state.todos.findIndex((todo) => todo.id === id);
+      state.todos[todoIdx].completed = !state.todos[todoIdx].completed;
+    },
+    createTodo(state, desc) {
+      state.todos.push({
+        id: uuidv4(),
+        completed: false,
+        text: desc,
+      });
     },
   },
   actions: {},
