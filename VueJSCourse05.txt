@@ -211,4 +211,166 @@ Practicamente es hacer lo mismo(ojo que cambia el final del endpoint,son diferen
 
 NOTA: recuerda que el @submit.prevent lo lleva la etiqueta <form></form>
 
+Los Websockets son una tecnologia que permite una comunicación bidireccional entre cliente y servidor sobre un único socket TCP.En cierta manera son un buen sustituto de AJAX como tecnología para obtener datos del servidor,ya que no tenemos que perdirlos,el servidor nos lo enviará cuando haya nuevos
+
       VIDEO 270 ACTUALIZAR EL DISPLAY NAME DE FIREBASE
+
+Realmente el error era en el nombre de la propiedad.No habia error de lógica.En el siguiente video vamos a solucionar la pérdida de los datos del store en cada refresh
+
+      VIDEO 271 COMPROBAR EL ESTADO DEL IDTOKEN
+
+Para solucionar este problema Firebase permite intercambiar un refreshToken por un idtoken apuntando a este endpoint(igual que los anteriores pero esta vez con :lookup).Ojo,que es un POST y pide un { idToken: '23423424kfks'} :
+
+https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=[API_KEY]
+
+Con todo esto creamos una action que comprobará el status(en realidad comprobará si hay un idToken y si lo hay vuelve a logear al usuario,almacenando todo de nuevo.Si no hay un idToken limpiamos todo y deslogeamos):
+
+export const checkAuthStatus = async ({ commit }) => {
+  const idToken = localStorage.getItem("idToken");
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  if (!idToken) {
+    // realmente estoy en el mismo módulo asi que no necesitaba el 'auth'
+    commit("auth/logout");
+    return {
+      ok: false,
+      message: "No hay idToken",
+    };
+  }
+  try {
+    const { data } = await authApi.post(":lookup", { idToken });
+    console.log({ data });
+    // ojo que Firebase regresa los usuarios en la data(data.users[0]).Siempre habrá solo uno con ese idToken
+    const { displayName, email } = data.users[0];
+
+    // creamos un user para volver a logearlo
+    const user = {
+      name: displayName,
+      email,
+    };
+    commit("loginUser", { user, idToken, refreshToken });
+     return { ok: true }; 
+  } catch (error) {
+    commit("auth/logout");
+    return {
+      ok: false,
+      message: error.response.data.error.message,
+    };
+  }
+};
+Aún faltaria llamar a esta action( a través del composable que ya tenemos)
+
+      VIDEO 272 RECARGAR EL ESTADO DE LA AUTENTICACIÓN
+
+Fernando explica que el mejor punto va a ser en el router principal,es decir en el App.vue, de esta forma se propagará la lógica a toda la aplicación.
+Lo primero vamos a crearnos un getter hacia la propiedad status en los getters del modulo auth:
+
+export const currentState = (state) => {
+  return state.status
+};
+
+Despues en el composable vamos a retornar una computed property hacia ese getter(recuerda que computed viene de vue,como ref)
+
+import { computed } from 'vue';
+
+export const useAuth = () => {
+  const store = useStore()
+  return {
+    authStatus: computed(() => store.getters['auth/currentState'])
+  }
+}
+Recuerda tmb que store.getters es un objeto y debo acceder por la key
+
+      VIDEO 273 AUTH GUARD
+
+Lo más importante es entender donde y con qué argumentos puedo llamar a un Guard en Vue.Fijate que lo debo llamar en las rutas de algun router,tengo varios ciclos de vida (beforeEnter,beforeEach,...).Usaremos beforeEnter.Fijate que la firma es beforeEnter: (to,from,next) => {} y que puede ser async perfectamente y además puede ser un arreglo de Guards o uno solo:
+
+const routes = [
+  {
+    path: "/",
+    name: "home",
+    component: HomeView,
+  },
+  {
+    path: "/about",
+    name: "about",
+    // this generates a separate chunk (about.[hash].js) for this route
+    component: () => import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
+  },
+  {
+    path: "/daybook",
+    beforeEnter: [isAuthenticatedGuard],
+    ...dayBookRoutes,
+  },
+
+  En cuanto a ese Guard luce asi:
+import store from '@/store'; <- ojo que es el store global
+
+  export const isAuthenticatedGuard = async (to,from,next) => {
+    const { ok } = await store.dispatch('auth/checkAuthStatus)
+    if(ok) next()
+    else next({name:'login'})
+  }
+
+  Fijate que el acceso al store mediante un import es necesario ya que el hook es solo para el interior del setup.Sencillo todo
+  NOTA: supongo que hay que usar el store global porque el Guard está más arriba que el módulo
+
+        VIDEO 274 LOGOUT Y NOMBRE DE USUARIO
+
+Simplemente creamos un getter hacia state.user.name y en el composable lo exponemos mediante una computed asi como la llamada al commit del logout.Pintamos en la navbar el nombre y en el boton de salir llamamos al logout(redirigimos tmb).
+Por último cambiamos las reglas de la DB ahora que ya tenemos la auth funcionando:
+{
+  "rules": {
+    ".read": "auth != null", 
+    ".write": "auth != null", 
+  }
+}
+Sin embargo vemos que esto ahora genera 401s.Lo solucionaremos muy fácil con un interceptor de axios:
+
+        VIDEO 275 INTERCEPTORES
+
+Realmente lo único que nos falta es mandar el idToken en cada petición a Firebase.Lo vamos a hacer con interceptores,pero perfectamente lo podemos hacer al crear la instancia tmb:
+
+* FORMA SIN INTERCEPTORES
+const journalApi = axios.create({
+  baseURL: "https://vue-daybooks-default-rtdb.europe-west1.firebasedatabase.app",
+  params:{
+    auth: localStorage.getItem('idToken')
+  }
+});
+
+* FORMA CON INTERCEPTORES(obviamente ya no iria la prop params en el axios.create)
+
+const journalApi = axios.create({
+  baseURL: "https://vue-daybooks-default-rtdb.europe-west1.firebasedatabase.app",
+});
+* usamos la instancia para acceder a interceptors.Siempre se recibe la config de la petición y debo retornarla tras modificarla:
+
+journalApi.interceptors.request.use( (config) => {
+  // aqui puedo usar config.headers | config.params etc
+  // auth porque Firebase dice que se debe llamar auth
+  config.params = {
+    auth: localStorage.getItem('idToken')
+  }
+  return config; <- sie
+})
+
+Desde luego es muy sencillo interceptar las requests y/o responses.El siguiente módulo testearemos todo esto(me fallarán muchas de las anteriores ya que estaban sobre un user sin autenticar)
+
+        SECCION 17 COMPOSITION API TESTING
+
+Probar el composition API puede ser engañoso, porque podemos probar literalmente todo o bien sólo lo que se expone en el return del setup y nuestros composable functions.
+
+Esta sección es quizá la más complicada por varias razones, pero no es que no podamos resolverla, puntualmente veremos:
+
+1- Testing autenticado
+2- Pruebas generales sobre el Store modularizado
+3- MockRouter
+4- Pruebas en composables
+5- Pruebas con autenticación exitosa y fallida
+6- Creación y eliminación de usuario durante pruebas
+7- Simular getters del store
+
+Al igual que la sección previa del testing, cuando probamos el Journal usando el options API, aquí crearemos un Store con ambos módulos (Auth y Journal) para que aprendamos como crear un store con la cantidad de módulos que sean necesarios en nuestras aplicaciones futuras
+
+Parte de mi objetivo con todas las pruebas que realizamos durante el curso, es que ustedes tengan un repertorio bastante grande para que puedan probar todo lo que necesiten de sus aplicaciones. 

@@ -52,3 +52,37 @@ export const signInUser = async ({ commit }, user) => {
     return { ok: false, message: error.response.data.error.message };
   }
 };
+
+export const checkAuthStatus = async ({ commit }) => {
+  const idToken = localStorage.getItem("idToken");
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  if (!idToken) {
+    // realmente estoy en el mismo módulo asi que no necesitaba el 'auth'
+    commit("logout");
+    return {
+      ok: false,
+      message: "No hay idToken",
+    };
+  }
+  try {
+    const { data } = await authApi.post(":lookup", { idToken });
+    // console.log({ data });
+    // ojo que Firebase regresa los usuarios en la data(data.users[0]).Siempre habrá solo uno con ese idToken
+    const { displayName, email } = data.users[0];
+
+    // creamos un user para volver a logearlo
+    const user = {
+      name: displayName,
+      email,
+    };
+    commit("loginUser", { user, idToken, refreshToken });
+     return { ok: true }; 
+  } catch (error) {
+    commit("auth/logout");
+    return {
+      ok: false,
+      message: error.response.data.error.message,
+    };
+  }
+};
