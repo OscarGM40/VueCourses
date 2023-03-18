@@ -1,12 +1,13 @@
 import EntryViewVue from "@/modules/daybook/views/EntryView.vue";
 import { shallowMount } from "@vue/test-utils";
-import { journalStateMock, mockedJournalStore } from "../../../mocks/daybook.mocks";
+import { journalStateMock, mockedJournalStore } from "../../../mocks/journalModule.mocks";
 import { createStore } from "vuex";
 import Swal from "sweetalert2";
 
 const mockRouter = {
   push: jest.fn(),
 };
+// realmente no es general éste,faltaria el modulo auth,es parcial
 const mockGeneralStore = () =>
   createStore({
     modules: {

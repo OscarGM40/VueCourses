@@ -1,7 +1,7 @@
 import EntryListVue from "@/modules/daybook/components/EntryList.vue";
 import { shallowMount } from "@vue/test-utils";
 import { createStore } from "vuex";
-import { mockedJournalStore } from "../../../mocks/daybook.mocks";
+import { mockedJournalStore } from "../../../mocks/journalModule.mocks";
 
 const mockRouter = {
   push: jest.fn(),

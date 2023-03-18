@@ -374,3 +374,199 @@ Esta sección es quizá la más complicada por varias razones, pero no es que no
 Al igual que la sección previa del testing, cuando probamos el Journal usando el options API, aquí crearemos un Store con ambos módulos (Auth y Journal) para que aprendamos como crear un store con la cantidad de módulos que sean necesarios en nuestras aplicaciones futuras
 
 Parte de mi objetivo con todas las pruebas que realizamos durante el curso, es que ustedes tengan un repertorio bastante grande para que puedan probar todo lo que necesiten de sus aplicaciones. 
+
+      VIDEO 279 TESTING AUTENTICADO
+
+Lo primero creamos un user más("User Test","test@test.gmail") que usaremos en los tests,los cuales podemos ver que estan fallando algunos.
+Fijate que necesitaremos un idtoken en el localStorage tal como tenemos la app.Lo unico que tenemos que hacer es llamar a su endpoint registrandonos antes:
+
+* En cada suite que falle pedimos el token y lo guardamos en el localStorage.
+  beforeAll(async () => {
+    const { data } = await authApi.post(":signInWithPassword", {
+      email: "test@test.gmail",
+      password: "123456",
+      // recuerda que este returnSecureToken es el que hace que se devuelve el idToken
+      returnSecureToken: true,
+    });
+    const { idToken } = data;
+    localStorage.setItem("idToken", idToken);
+  });
+
+En la vida real jamás debemos mezclar una base de datos de producción con la de testing.
+NOTA: Jest permite interactuar con el localStorage,tiene visión sobre él.No pasará lo mismo con otros test-runners como Mocha y habrá que mockear todo el localStorage(y sus métodos setItem,getItem,etc).Con Jest no hace falta(y lo mismo para el sessionStorage).
+Desde luego queda claro porque es la solución más usada.
+
+    VIDEO 280 PRUEBAS EN VUEX CREAR UN MOCK DEL STORE
+
+Realmente no vamos a hacer nada nuevo en este video.Simplemente exportamos una función que cree un store(mediante createStore) y que pueda recibir por argumento los estados iniciales de ambos modulos(uno ya tenemos un mock).Luego:
+
+import { createStore } from 'vuex";
+import authModule from '@/modules/auth/store';
+import journalModule from '@/modules/daybook/store/journal'; <- nunca hizo falta esa carpeta extra,supongo
+
+import { journalStateMock } from '../mocks/daybook.mocks', <- initialState mockeado que teniamos por ahi
+
+const createVuexStore = (authInitState,journalInitState = journalStateMock) => {
+  return createStore({
+    modules:{
+      auth:{
+        ...authModule,
+        state: structuredClone(authInitState)
+      },
+      journal:{
+        ...journalModule,
+        state: structuredClone(journalInitState)
+      }
+    }
+  })
+}
+export default createVuexStore;
+
+Desde luego es muy sencillo mockear stores en Vue.Fijate que para el primer modulo en la seccion anterior hicimos lo mismo pero solo con el de journal.
+
+      VIDEO 281 AUTH MODULE - VUEX MODULE
+
+Empezaremos testeando acciones,getters,initialState y mutations del auth Store.Nda que no hayamos echo ya,asi que creo un authStateMock y lo pasamos como arg en el método anterior:
+
+  test("initial state should concord", () => {
+    const store = createMainStore(authStateMock);
+    const { status, user, idToken, refreshToken } = store.state.auth;
+
+    expect(status).toBe("authenticating");
+    expect(user).toBe(null);
+    expect(idToken).toBe(null);
+    expect(refreshToken).toBe(null);
+  });
+
+      VIDEO 282 MUTATION LOGIN USER
+
+Debo leer bien las funciones,fijate que a l amutation le da igual que los valores sean correctos o no,simplemente hace algo con ellos.Teniendo esto en cuenta simplemente comprobamos que tras dispararla establezca el user como user en el state,cambie el token y el status,etc:
+
+  test("mutation loginUser should login with a valid user", () => {
+    const store = createMainStore(authStateMock);
+
+    // realmente da igual qué mandar,a la mutation loginUser le da igual,simplemente establece en el localStorage los tokens y cambia el user al user y el status a authenticated.Importante esto? quizás...
+    const payload = {
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    };
+    
+    store.commit("auth/loginUser", payload);
+    const { status, user, idToken, refreshToken } = store.state.auth;
+    
+    expect(status).toBe("authenticated");
+    expect(user).toEqual(payload.user);
+    expect(idToken).toBe(payload.idToken);
+    expect(refreshToken).toBe(payload.refreshToken);
+  });
+
+        VIDEO 283 MUTATION LOG OUT
+
+Más de lo mismo.Esta vez podemos comprobar que partiendo de un state con un user lo devuelva a null,etc.También sería buena idea comprobar que interactua con el localStorage, limpiando los valores:
+
+
+  test("mutation log out user should establish the correct values to the auth state", () => {
+    const store = createMainStore({
+      status: "authenticated",
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    });
+
+    localStorage.setItem("idToken", store.state.auth.idToken);
+    localStorage.setItem("refreshToken", store.state.auth.refreshToken);
+    expect(localStorage.getItem("idToken")).not.toBe(null);
+    expect(localStorage.getItem("refreshToken")).not.toBe(null);
+
+    store.commit("auth/logout");
+    const { status, user, idToken, refreshToken } = store.state.auth;
+
+    expect(status).toBe("not-authenticated");
+    expect(user).toBe(null);
+    expect(idToken).toBe(null);
+    expect(refreshToken).toBe(null);
+    expect(localStorage.getItem("idToken")).toBe(null);
+    expect(localStorage.getItem("refreshToken")).toBe(null);
+  });
+
+  De nuevo Jest permite interactuar con el localStorage(o el sessionStorage) de una forma muy sencilla(simplemente comprobamos sobre él)
+
+    VIDEO 284 GETTERS GET CURRENT STATE Y GETTER GET USERNAME
+
+Dado que son tan sencillos los haremos ambos en un único test.Recuerda que store.getters es un objeto y hay que acceder por la computed key:
+  test("getters currentState and username  should return auth status and user.name", () => {
+    const store = createMainStore({
+      status: "authenticated",
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    });
+
+    expect(store.getters["auth/currentState"]).toBe("authenticated")
+    expect(store.getters["auth/getUsername"]).toBe("Fernando")
+    console.log({type:typeof store.getters})
+  });
+
+  VIDEO 285 ACTION CREATE USER - USER ALREADY EXISTS PATH
+
+En este punto podemos hacer dos cosas, o bien mockear la respuesta que daria Firebase o realmente hacer la consulta y ver que realmente Firebase no guarda el usuario.
+De esta forma simplemente hay que disparar la acción y ver la respuesta:
+
+  test("createUser action should be rejected due to an already existing user", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    const newUser = {
+      name: "Test User",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // obviamente el commit no tengo que mandarlo por argumento
+    const resp = await store.dispatch("auth/createUser", newUser);
+    // console.log({ resp });
+    expect(resp).toEqual({ ok: false, message: "EMAIL_EXISTS" });
+  });
+
+Fijate que el commit no necesito mandarlo y que esta prueba fallará en el momento en que Firebase devuelva otro tipo de message,por ejemplo.No es nada mantenible en el tiempo
+
+    VIDEO 286 ACTION CREATE USER - USER CREATED SUCCESFULLY
+
+En este punto tenemos el problema de el usuario deberia ser diferente en cada test para que siempre pase el test.Y dado que no tiene mucho sentido guardar un usuario nuevo lo que haremos será borrarlo despues:
+
+Docu: https://firebase.google.com/docs/reference/rest/auth?hl=es-419#section-delete-account
+Endpoint: https://identitytoolkit.googleapis.com/v1/accounts:delete?key=
+[API_KEY]
+
+Simplemente creamos un usuario y despues lo borramos(fijate que FH al final dió muchas vueltas):
+
+   test("Actions: createUser when user not exist", async () => {
+    const store = createVuexStore({
+      user: null,
+      status: "authenticating",
+      token: null,
+      refreshToken: null,
+    });
+ 
+    const newUser = {
+      name: "Tester",
+      email: "test2@test.com",
+      password: "123456",
+    };
+ 
+    const res = await store.dispatch("auth/createUser", newUser);
+ 
+    expect(res).toEqual({ ok: true });
+ 
+    const { token } = store.state.auth;
+ 
+    // Delete user create
+    await authApi.post(":delete", { idToken: token });
+  });
+
+      VIDEO 287 ACTION - CHECK AUTH STATUS - POSITIVE
+
+      

@@ -1,8 +1,9 @@
 import journalModule from "@/modules/daybook/store/journal";
-import { journalStateMock } from "../../../../mocks/daybook.mocks";
+import { journalStateMock } from "../../../../mocks/journalModule.mocks";
 import { createStore } from "vuex";
 import journalAPI from "@/api/journalApi";
 import { transformEntries } from "@/modules/daybook/helpers/transformEntries";
+import authApi from "@/api/authApi";
 
 const createVuexMockStore = (initialState) =>
   createStore({
@@ -16,7 +17,17 @@ const createVuexMockStore = (initialState) =>
 
 describe("Initial state should match", () => {
   beforeEach(() => jest.clearAllMocks());
-
+  // no confundir beforeAll(que solo se ejecuta una vez)
+  beforeAll(async () => {
+    const { data } = await authApi.post(":signInWithPassword", {
+      email: "test@test.gmail",
+      password: "123456",
+      // recuerda que este returnSecureToken es el que hace que se devuelve el idToken
+      returnSecureToken: true,
+    });
+    const { idToken } = data;
+    localStorage.setItem("idToken", idToken);
+  });
   test("initialState should concord", () => {
     const store = createVuexMockStore(journalStateMock);
     const { isLoading, entries } = store.state.journal;
