@@ -112,14 +112,60 @@ describe("Testing auth module store", () => {
     });
     // realmente empieza aqui el testing
     const resp = await store.dispatch("auth/createUser", newUser);
-    console.log({ resp });
+    // console.log({ resp });
     expect(resp).toMatchObject({ ok: true });
 
-    const { status, user, idToken:token, refreshToken } = store.state.auth;
+    const { status, user, idToken: token, refreshToken } = store.state.auth;
 
-        expect(status).toBe("authenticated");
-        expect(user).toEqual(user);
-        expect(token).toEqual(expect.any(String));
-        expect(refreshToken).toEqual(expect.any(String));
+    expect(status).toBe("authenticated");
+    expect(user).toEqual(user);
+    expect(token).toEqual(expect.any(String));
+    expect(refreshToken).toEqual(expect.any(String));
+  });
+
+  test("action checkAuthStatus should return ok when user is logged, that is, when there is the correct idToken stored in localStorage", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    const newUser = {
+      name: "User Test",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // deslogeamos antes ya que hay un usuario en Firebase de pruebas anteriores
+    store.commit("auth/logout");
+    // hay que llamar a la action signInUser para que guarde un idtoken valido y la action checkAuthStatus al llamar a :lookup devuelva el ok:true
+    await store.dispatch("auth/signInUser", newUser);
+    const resp = await store.dispatch("auth/checkAuthStatus");
+    expect(resp).toEqual({ ok: true });
+  });
+  
+  test("action checkAuthStatus should return ok false when there is no idToken stored in localStorage or there is an incorrect one", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    // deslogeamos antes ya que hay un usuario en Firebase de pruebas anteriores
+    store.commit("auth/logout");
+    // y tratamos de comprobar,dará un fallo pues no hay token
+    const resp = await store.dispatch("auth/checkAuthStatus");
+    expect(resp).toMatchObject({ ok: false });
+    
+    const newUser = {
+      name: "User Test",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // logeamos con un usuario
+    await store.dispatch("auth/signInUser", newUser);
+    // y cambiamos el token
+    localStorage.setItem("idToken", "bla bla bla");
+    const check = await store.dispatch("auth/checkAuthStatus");
+    expect(check).toMatchObject({ ok: false });
   });
 });

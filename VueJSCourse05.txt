@@ -569,4 +569,174 @@ Simplemente creamos un usuario y despues lo borramos(fijate que FH al final dió
 
       VIDEO 287 ACTION - CHECK AUTH STATUS - POSITIVE
 
-      
+ Deslogeamos al usuario,nos logeamos con uno en concreto y esperamos que la action checkAuthStatus devuelva todo correcto:     
+
+   test("action checkAuthStatus should return ok when user is logged, that is, when there is the correct idToken stored in localStorage", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    const newUser = {
+      name: "User Test",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // deslogeamos antes ya que hay un usuario en Firebase de pruebas anteriores
+    store.commit("auth/logout");
+    // hay que llamar a la action signInUser para que guarde un idtoken valido y la action checkAuthStatus al llamar a :lookup devuelva el ok:true
+    await store.dispatch("auth/signInUser", newUser);
+    const resp = await store.dispatch("auth/checkAuthStatus");
+    expect(resp).toEqual({ ok: true });
+  });
+
+  Para el check fallido probamos sin un token en el localStorage y con uno random.
+
+        VIDEO 289 PRUEBAS EN COMPOSABLES
+
+Antes de nada pudiera parecer que la llamada al useStore hay que mockearla creando un store,pero no es asi,no hace falta.Lo importante es el return de una funcion en el testing.
+
+Aun asi vamos a mockear un store,de momento con el dispatch nos vale(fijate que en este punto no queremos que las acciones realizen la lógica que realizan,lo acabamos de testear).Muy inteligente:
+
+No tiene mucha ciencia, es un objeto con una funcion llamada dispatch
+const mockStore = {
+  dispatch: jest.fn(),
+  // commit
+  // getters
+}
+
+Algo interesante que se puede hacer en Jest es fingir librerias al completo.La libreria es vuex.Para mockear simplemente usamos jest.mock(module,factory)
+
+jest.mock('vuex',() => Object ) <- esto basicamente se traduce por => cuando se llame a vuex(que lo llama el useStore) usas el mock con lo que te diga(obviamente necesitamos que esté una jest.fn() llamada useStore)
+
+Entonces,sabiendo que el hook viene de vuex y va a llamar a una funcion useStore que devuelve un store podemos mockear la libreria y la función:
+
+jest.mock('vuex',() => ({
+  useStore: () => mockStore
+}))
+
+Todo esto lo hacemos para no llegar al backend,obviamente.Fijate que no ha llamado a la libreria en ningun momento,simplemente la ha mockeado:
+
+const mockStore = {
+  dispatch: jest.fn(),
+};
+
+jest.mock("vuex", () => ({
+  useStore: () => mockStore,
+}));
+
+describe("testing useAuth composable", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test("createUser should be resolved successfully", async () => {
+
+    const { createUser } = useAuth();
+    const newUser = { name: "Fernando", email: "fernando@gmail.com", password: "123456" };
+    // mockeamos el retorno por que la llamada a la action retorna algo,asi sabemos si retorna lo mismo que lo hizo bien(de nuevo muy interesante hacer esto tmb)    
+    mockStore.dispatch.mockReturnValue({ ok: true });
+    const resp = await createUser(newUser);
+
+    expect(resp).toEqual({ ok: true });
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/createUser", {
+      email: "fernando@gmail.com",
+      name: "Fernando",
+      password: "123456",
+    });
+  });
+
+          VIDEO 290 PROBAR UNA PETICION FALLIDA
+
+En este punto es importante entender que la funcionalidad de que la action de create user ya esta probada,solo estamos probando el hook,no es necesario que realmente sepamos si el user esta repetido,estamos ante una prueba unitaria:
+
+  test("createUser should be resolved unsuccessfully/wrongly", async () => {
+    const { createUser } = useAuth();
+    mockStore.dispatch.mockReturnValue({ ok: false, message: "EMAIL_EXISTS" });
+    const resp = await createUser(newUser);
+
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/createUser", newUser);
+    expect(resp).toEqual({ ok: false, message: "EMAIL_EXISTS" });
+
+  });
+
+Es decir,lo único que evaluamos es que el retorno de la respuesta a la llamada a la action sea lo que vemos al llamarla desde el composable.No necesitamos más,la action ya la hemos probado.De nuevo otro concepto superinteresante
+
+      VIDEO 291 LOGIN EXITOSO Y FALLIDO
+
+Ambas pruebas son básicamente lo mismo que ya estamos realizando:
+  test("loginUser should be resolved successfully", async () => {
+    const { loginUser } = useAuth();
+    
+    mockStore.dispatch.mockReturnValue({ ok: true });
+    const resp = await loginUser(newUser);
+    
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/signInUser", newUser);
+    expect(resp).toEqual({ ok: true });
+  });
+
+   test("loginUser should be resolved unsuccessfully/wrongly", async () => {
+    const { loginUser } = useAuth();
+
+    mockStore.dispatch.mockReturnValue({ ok: false, message: "EMAIL_DOES_NOT_EXISTS" });
+    const resp = await loginUser(newUser);
+    
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/signInUser", newUser);
+    expect(resp).toEqual({ ok: false, message: "EMAIL_DOES_NOT_EXISTS" });
+  }); 
+
+        VIDEO 292 PRUEBAS EN EL LOGOUT
+
+Fijate que el logout es una funcion que hemos creado en el hook que llama a dos mutations.Asi que lo primero tendremos que mockear la funcion commit:
+
+Esto es lo que hace logout del composable
+  const logout = () => {
+    store.commit('auth/logout')
+    store.commit('journal/clearEntries')
+  }
+
+  Mockeamos el commit tmb:
+  const mockStore = {
+  dispatch: jest.fn(),
+  commit: jest.fn(),
+  // getters
+};
+
+Y esperamos que se llame dos veces.Fijate que incluso podemos saber con qué argumentos se ha llamado y si han sido dos la segunda será el segundo toHaveBeenCalledWith.Muy interesante eso
+  test("logout", async () => {
+    const { logout } = useAuth();
+
+    logout();
+    
+    expect(mockStore.commit).toHaveBeenCalledWith("auth/logout");
+    expect(mockStore.commit).toHaveBeenCalledWith("journal/clearEntries");
+    expect(mockStore.commit).toHaveBeenCalledTimes(2);
+  }); 
+
+  VIDEO 293 PRUEBAS EN PROPIEDADES COMPUTADAS DEL COMPOSABLE
+
+  Si nos fijamos tmb retornamos un par de computed que acceden al store.getters.Ojo que mockearlos tiene un poco de ciencia,ya que las keys tienen que lucir de esta forma:
+
+  const mockStore = {
+  dispatch: jest.fn(),
+  commit: jest.fn(),
+  getters: {
+    "auth/currentState": "authenticated",
+    "aut/getUsername": "asinto",
+  },
+};
+Además el valor no es una jest.fn pues es un valor,el que quiera.Si quiero puedo cambiarlo para cada prueba(pero no con mockReturnedValue ya que es para funciones,y mockResolved para promesas).Simplemente tengo que reasignar:
+
+mockStore.getters['auth/currentState'] = "processing";
+
+IMPORTANTE: una computed es un objeto reactivo,es muy parecido a una ref,si quiero acceder al valor es con .value luego:
+
+  test("authStatus should retrieve status through the getter", () => {
+    const { authStatus } = useAuth();
+
+    mockStore.getters['auth/currentState'] = "processing";
+    console.log({ authStatus });
+    expect(authStatus.value).toBe("processing"); <- ojo que es authStatus.value
+  });
+Todo bien claro
+
+      VIDEO 294 PRUEBAS EN EL CMP NAVBAR
