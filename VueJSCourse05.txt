@@ -740,3 +740,170 @@ IMPORTANTE: una computed es un objeto reactivo,es muy parecido a una ref,si quie
 Todo bien claro
 
       VIDEO 294 PRUEBAS EN EL CMP NAVBAR
+
+ Recuerda que para pasar un store a un componente en Vue va como un plugin en los global:
+
+const store = createMainStore(authMock);
+
+ const wrapper = shallowMount(NavbarVue, {
+  global:{
+    plugin: [store] <- el componente usará ese store
+  }
+ })
+
+ NOTA: si hacemos un console.log del html veremos un warning sobre ese hook useRouter(que al final es por lo que estamos haciendo todo esto):
+
+console.log(wrapper.html());ç
+
+  [Vue warn]: injection "Symbol(router)" not found. 
+  at <Anonymous ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+Parece que hay que inyectar el router.Lo veremos en el siguiente video
+
+      VIDEO 295 PRUEBAS CON EL ROUTER EN COMPOSITION API
+
+Para lograr hacer que el router funcione en el Composition API en la parte de testing vamos a tener que usar una libreria de terceros(Fernando tuvo problemas haciendo el mock completo de la libreria vue-router pero no lo consiguio) 
+Docu:https://github.com/posva/vue-router-mock
+>yarn add vue-router-mock
+
+Despues seguir con las dos configuraciones en el jest.config y jest.setup que pide.Fijate que en jest.setup puedo configurar establecer cosas y en el config las configuro/declaro y por ello las tendré en los test.Muy interesante
+
+Ya solo es crear una prueba válida.Recuerda que estamos redireccionando por name al login y disparando el commit del logout asi que :
+
+const wrapper = shallowMount(NavbarVue,{
+  global:{
+    plugin: [store]
+  }
+})
+await wrapper.find('button').trigger('click');
+expect(wrapper.router.push).toHaveBeenCalledWith({
+  name:'login
+})
+expect(store.state.auth).toEqual({
+  user:null,
+  idToken:null
+})
+
+IMPORTANTE: todas las pruebas que estan usando el router con el Options API ahora van a fallar.Se supone que nunca debimos mezclar APIs asi que no sería muy importante esto.La solución tmb habria sido no configurar esta libreria globalmente sino solo para esta suite
+
+NOTA: realmente siempre pudimos haber mockeado la libreria de forma natural.No hacia falta nada de esto.Muy prehistoric aqui el profe:
+
+const mockRouter = {
+  push:jest.fn()
+}
+
+jest.mock('vue-router',() => ({
+  useRouter:() => mockRouter
+}))
+
+        VIDEO 296 MANTENER PRUEBAS CON AMBOS ROUTERS
+
+Realmente es probable que tenga que trabajar en una aplicación que tenga el router configurado de las dos maneras.Hemos visto que usando una u otra no tendriamos problemas pero si mezclaramos APIs seria simplemente usar la estrategia local en vez de global:
+
+* Agregar esto a cada file
+const {
+  VueRouterMock,
+  createRouterMock,
+  injectRouterMock,
+} = require('vue-router-mock')
+const { config } = require('@vue/test-utils')
+
+// create one router per test file
+const router = createRouterMock()
+beforeEach(() => {
+  injectRouterMock(router)
+})
+
+// Add properties to the wrapper
+config.plugins.VueWrapper.install(VueRouterMock)
+
+Basicamente es omitir la llamada al setupFilesAfterEnv y unicamente pegarlo en cada file.Obviamente esta libreria no tiene sentido,es mejor crear un mock del modulo y ya
+
+        VIDEO 297 PRUEBAS EN EL LOGIN COMPONENT
+
+Ya solo falta el login y el register.Fijate que tengo que mockear el store y el vue-router,ya que el useAuth está disparando actions y commits
+NOTA: una vez que tengo una funcion mockeada puedo hacer que devuelva lo que quiera con mockReturnValue:
+store.dispatch = jest.fn()
+store.dispatch.mockReturnValueOnce({of:false,message:"anything})
+Supongo que es lo mismo que el oneliner jest.fn().mockReturnValueOnce
+
+NOTA: fijate de nuevo que si pongo un console.log en las templates lo veré desde las pruebas:
+
+console.log
+    { ok: false, message: 'Error en credenciales' }
+      at Proxy.onSubmit (src/modules/auth/views/Login.vue:58:19) <- linea 58
+
+Con todo esto podemos crear un test asi:
+
+const mockRouter = { <- fijate que el nombre no podia empezar por router
+  push: jest.fn()
+}
+jest.mock("vue-router", () => ({
+  useRouter: () => mockRouter
+}))
+
+import Swal from 'sweetaler2'; <-  y este porque si necesita su import real ??
+jest.mock("sweetalert2", () => ({
+  fire: jest.fn(),
+  close: jest.fn(),
+  showLoading: jest.fn()
+}))
+
+describe('pruebas en login', () => {
+  const store = createMainStore({
+     status: "not-authenticated",
+    user: null,
+    idToken: null,
+    refreshToken: null,
+  })
+  store.dispatch = jest.fn()
+  beforeEach(() => jest.clearAllMocks());
+
+  it('debe de resolver el login con un error', async () => {
+    const wrapper = shallowMount(LoginVue,{
+      global:{
+        plugin:[store],
+        stubs:['vue-router']
+      }
+    })
+    store.dispatch.mockReturnValueOnce({ok:false,message:"incorrect credentials"});
+    await wrapper.find("form").trigger("submit");
+   expect(store.dispatch).toHaveBeenCalledWith("auth/signInUser,{email:'',password:''});
+   expect(Swal.fire).toHaveBeenCalledWith("Error,"incorrect credentials","error")
+  })
+})
+
+La siguiente prueba debe comprobar que unas credenciales correctas dispara el router y nos mueve a no-entry:
+
+ it("Debe de resolver el login con exito y redirigir a no-entry", async () => {
+    store.dispatch.mockReturnValueOnce({ ok: true });
+
+    const wrapper = shallowMount(LoginVue, {
+      global: {
+        plugins: [store],
+        stubs: ["router-link"],
+      },
+    });
+
+    // buscar por todos tmb me valia,siempre los va a encontrar en el mismo orden
+    // const [ txtEmail,txtPass] = wrapper.findAll('input')
+
+    const textInput = wrapper.find('input[type="text"]');
+    // ojo que setValue es asincrono!!
+    await textInput.setValue("Fernando@gmail.com");
+    const passInput = wrapper.find('input[type="password"]');
+    await passInput.setValue("ABCabc123@");
+
+    await wrapper.find("form").trigger("submit");
+    expect(store.dispatch).toHaveBeenCalledWith("auth/signInUser", {
+      email: "Fernando@gmail.com",
+      password: "ABCabc123@",
+    });
+
+    expect(Swal.fire).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: "no-entry" });
+  });
+
+  El register sería lo mismo,no tiene mucho sentido hacerlo fuera de un ambiente laboral
+Recuerda que Element.setValue es asincrono

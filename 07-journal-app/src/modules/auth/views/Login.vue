@@ -43,17 +43,23 @@ export default {
      const { loginUser } = useAuth();
 
     const userForm = ref({
-      email:"Fernando@gmail.com",
-      password: "ABCabc123@",
+      // email:"Fernando@gmail.com",
+      email:"",
+      // password: "ABCabc123@",
+      password: "",
     })
 
 
     return {
       userForm,
       onSubmit: async () => {
-        const { ok, message } = await loginUser(userForm.value);
-        if (!ok) Swal.fire("Error", message, "error");
-        else router.push({ name: "no-entry" });
+        try {
+          const { ok, message } = await loginUser(userForm.value);
+          if (!ok) Swal.fire("Error", message, "error");
+          else router.push({ name: "no-entry" });
+        } catch (error) {
+          console.log(error)
+        }
       }
     }
   }
