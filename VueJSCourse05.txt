@@ -1,0 +1,909 @@
+    SECCION 16 AUTENTICACION  EN NUESTRA JOURNAL APP
+
+FH recomienda no mezclar la Options API con la Composition API,aunque lo vamos a hacer en esta sección dado que tenemos la app en la Options API.
+Colocaremos interceptores de axios en las rutas también.
+
+Esta sección tiene por objetivo que pongamos en práctica lo aprendido en el composition API en nuestra aplicación de diario. Puntualmente tocaremos los siguientes temas:
+
+1 -Vuex composables
+2- Custom composables para acceder al store
+3- Manejo de autenticación
+4- Guards aplicados
+5- Manejo de tokens
+6- Estado de la autenticación
+  a- Autenticando
+  b- Autenticado
+  c- No Autenticado
+7- Mutaciones dentro de composables
+8- Acciones dentro de composables
+9- Interceptores
+
+        VIDEOS 261-263
+
+Traer la template del zip y crear los componentes y sus rutas.
+En el video de crear el store fijate que los tengo que combinar con createStore:
+
+import { createStore } from 'vuex';
+import journalModule from '../modules/daybook/store/journal';
+import authModule from '@/modules/auth/store';
+
+const store = createStore({
+modules:{
+  journal: journalModule,
+  auth: authModule
+}
+})
+
+export default store
+
+Y cada xxxModule es un objeto que luce asi.:
+
+import state from './state';
+import * as actions from "./actions";
+import * as getters from "./getters";
+import * as mutations from "./mutations";
+
+const authModule = {
+  namespaced:true,
+  actions,
+  getters,
+  mutations,
+  state
+}
+
+export default authModule;
+
+    VIDEO 264 FORMULARIO - USE AUTH HOOK
+
+Fijate que sencillo es enganchar un formulario con Vue a una ref y disparar el Submit(desde luego es ridiculamente sencillo):
+<form>
+  <input v-model="userForm.name" .... /> <- campo cualquiera
+  <input v-model="userForm.email" .... />
+  <button @submit.="onSubmit"
+</form>
+
+setup(){
+  const userForm = ref({
+    name:"",
+    email:""
+  })
+  return {
+    userForm,
+    onSubmit: async() => handleSubmit
+  }
+}
+
+      VIDEO 265 OBTENER TOKEN DE ACCESO DE FIREBASE
+
+Habilitamos el modulo de Authentication,y elegimos custom email/password.Fijate que dado que es una app muy sencilla ni siquiera vamos a usar el firebase.config sino que vamos a apuntar a un endpoint que ya exponen ellos mandando una API_KEY.
+
+IMPORTANTE: el endpoint es "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=[API_KEY] luego el unico queryParam es 'key'
+
+NOTA:el endpoint es el mismo,mediante la api_key ya sabe que proyecto es(fijate que tengo que ir a configuracion de proyecto/Clave de API Web y copiar el token a mandar a ese endpoint).
+
+
+PASO UNO: Refactorizar la instancia de axios(luce asi):
+
+const authApi = axios.create({
+  baseURL: "https://identitytoolkit.googleapis.com/v1/accounts",
+  params: {
+    key: process.env.VUE_APP_FIREBASE_TOKEN,
+  },
+});
+
+export default authApi;
+
+IMPORTANTE: este endpoint es un POST quepide un body con estas tres propiedades:
+{
+  email:...
+  password:...
+  returnSecureToken: <- booleano que debo mandar a true para que devuelva el token que necesitamos
+}
+
+PASO DOS: creamos la accion asincrona:
+* En el actions.js de ese modulo
+export const createUser = async ({ commit }, user) => {
+  const { name, email, password } = user;
+
+  try {
+    const { data } = await authApi(":signUp", {
+      email,
+      password,
+      returnSecureToken: true, <- fijate en las tres props obligatorias
+    });
+    console.log(data)
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error.response.data.error.message  };
+  }
+};
+
+PASO TRES: la action la llamamos en el hook,que lo llamará el componente,etc:
+* Composable *
+export const useAuth = () => {
+  const store = useStore();
+
+  const createUser = async (user) => {
+    // ojo que es una accion asincrona y debo usar await
+    return await store.dispatch("auth/createUser", user);
+  };
+
+  return {
+    createUser,
+  };
+};
+
+    VIDEO 266 ACTUALIZAR EL DISPLAY NAME DEL USUARIO
+
+Si nos fijamos bien Firebase tiene un hueco para meter un Name a ese usuario, vamos a cambiarlo/mostrarlo tmb.Sin embargo el endpoint solo pedia un objeto con las props email,password y returnSecureToken.
+
+Para poder cambiar el perfil tenemos que actualizarlo,puedo ver en la documentación que aunque se haya logeado por custom pass puedo cambiar el displayName,la photoUrl y alguna cosa mas(muy interesante pues)
+
+IMPORTANTE: el endpoint esta vez es "https://identitytoolkit.googleapis.com/v1/accounts:update?key=[API_KEY]. Solo cambia el :signUp.
+
+De nuevo es un POST,sin embargo el objeto tiene otro tipado(ojo que siempre va a pedir un idToken correcto:
+{
+  idToken,
+  displayName?,
+  photoUrl?,
+  returnSecureToken?,
+  refreshToken?
+} <- el objeto a mandar en el update luce asi(solo el idToken required)
+
+ try {
+    const { data } = await authApi.post(":signUp", {
+      email,
+      password,
+      returnSecureToken: true,
+    });
+    
+    // para el update necesito mandar el idToken que me retorna un signUp exitoso(fijate que le puedo mandar un name y una foto,asin)
+    const { idToken } = data;
+
+    // y lanzo el update para el displayName
+    await authApi.post(":update", {
+      displayName:name,
+      idToken,
+    });
+ }
+
+      VIDEO 267 MUTATION LOGIN USER
+
+No puede ser más sencilla.Recuerda que es una mutation:
+
+export const loginUser = (state, { user, idToken, refreshToken }) => {
+  if (idToken) {
+    localStorage.setItem("idToken", idToken);
+    state.idToken = idToken;
+  }
+
+  if (refreshToken) {
+    localStorage.setItem("refreshToken", refreshToken);
+    state.refreshToken = refreshToken;
+  }
+
+  state.user = user;
+  state.status = "authenticated";
+};
+
+Y la action la llamará asi.Fijate que al estar en el mismo modulo me puedo ahorrar 'auth/loginUser':
+  delete user.password;
+  commit('loginUser',{user,idToken,refreshToken})
+
+    VIDEO 268 MENSAJE ERROR EN EL REGISTER
+
+Dado que ahora tenemos un ok:true o false como respuesta podemos informar al usuario del error.No solo eso, tambien debo redireccionar al usuario si es un registro exitoso.
+        
+  if(!ok) Swal.fire('Error',message,'error')
+  else router.push({name:'no-entry'})
+
+    VIDEO 269 ACTIONS -LOGIN DE USUARIO
+
+Practicamente es hacer lo mismo(ojo que cambia el final del endpoint,son diferentes todos y es ':signInWithPassword'):
+
+  try {
+    const { data } = await authApi.post(":signInWithPassword", {
+      email,
+      password,
+      returnSecureToken: true,
+    });
+
+NOTA: recuerda que el @submit.prevent lo lleva la etiqueta <form></form>
+
+Los Websockets son una tecnologia que permite una comunicación bidireccional entre cliente y servidor sobre un único socket TCP.En cierta manera son un buen sustituto de AJAX como tecnología para obtener datos del servidor,ya que no tenemos que perdirlos,el servidor nos lo enviará cuando haya nuevos
+
+      VIDEO 270 ACTUALIZAR EL DISPLAY NAME DE FIREBASE
+
+Realmente el error era en el nombre de la propiedad.No habia error de lógica.En el siguiente video vamos a solucionar la pérdida de los datos del store en cada refresh
+
+      VIDEO 271 COMPROBAR EL ESTADO DEL IDTOKEN
+
+Para solucionar este problema Firebase permite intercambiar un refreshToken por un idtoken apuntando a este endpoint(igual que los anteriores pero esta vez con :lookup).Ojo,que es un POST y pide un { idToken: '23423424kfks'} :
+
+https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=[API_KEY]
+
+Con todo esto creamos una action que comprobará el status(en realidad comprobará si hay un idToken y si lo hay vuelve a logear al usuario,almacenando todo de nuevo.Si no hay un idToken limpiamos todo y deslogeamos):
+
+export const checkAuthStatus = async ({ commit }) => {
+  const idToken = localStorage.getItem("idToken");
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  if (!idToken) {
+    // realmente estoy en el mismo módulo asi que no necesitaba el 'auth'
+    commit("auth/logout");
+    return {
+      ok: false,
+      message: "No hay idToken",
+    };
+  }
+  try {
+    const { data } = await authApi.post(":lookup", { idToken });
+    console.log({ data });
+    // ojo que Firebase regresa los usuarios en la data(data.users[0]).Siempre habrá solo uno con ese idToken
+    const { displayName, email } = data.users[0];
+
+    // creamos un user para volver a logearlo
+    const user = {
+      name: displayName,
+      email,
+    };
+    commit("loginUser", { user, idToken, refreshToken });
+     return { ok: true }; 
+  } catch (error) {
+    commit("auth/logout");
+    return {
+      ok: false,
+      message: error.response.data.error.message,
+    };
+  }
+};
+Aún faltaria llamar a esta action( a través del composable que ya tenemos)
+
+      VIDEO 272 RECARGAR EL ESTADO DE LA AUTENTICACIÓN
+
+Fernando explica que el mejor punto va a ser en el router principal,es decir en el App.vue, de esta forma se propagará la lógica a toda la aplicación.
+Lo primero vamos a crearnos un getter hacia la propiedad status en los getters del modulo auth:
+
+export const currentState = (state) => {
+  return state.status
+};
+
+Despues en el composable vamos a retornar una computed property hacia ese getter(recuerda que computed viene de vue,como ref)
+
+import { computed } from 'vue';
+
+export const useAuth = () => {
+  const store = useStore()
+  return {
+    authStatus: computed(() => store.getters['auth/currentState'])
+  }
+}
+Recuerda tmb que store.getters es un objeto y debo acceder por la key
+
+      VIDEO 273 AUTH GUARD
+
+Lo más importante es entender donde y con qué argumentos puedo llamar a un Guard en Vue.Fijate que lo debo llamar en las rutas de algun router,tengo varios ciclos de vida (beforeEnter,beforeEach,...).Usaremos beforeEnter.Fijate que la firma es beforeEnter: (to,from,next) => {} y que puede ser async perfectamente y además puede ser un arreglo de Guards o uno solo:
+
+const routes = [
+  {
+    path: "/",
+    name: "home",
+    component: HomeView,
+  },
+  {
+    path: "/about",
+    name: "about",
+    // this generates a separate chunk (about.[hash].js) for this route
+    component: () => import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
+  },
+  {
+    path: "/daybook",
+    beforeEnter: [isAuthenticatedGuard],
+    ...dayBookRoutes,
+  },
+
+  En cuanto a ese Guard luce asi:
+import store from '@/store'; <- ojo que es el store global
+
+  export const isAuthenticatedGuard = async (to,from,next) => {
+    const { ok } = await store.dispatch('auth/checkAuthStatus)
+    if(ok) next()
+    else next({name:'login'})
+  }
+
+  Fijate que el acceso al store mediante un import es necesario ya que el hook es solo para el interior del setup.Sencillo todo
+  NOTA: supongo que hay que usar el store global porque el Guard está más arriba que el módulo
+
+        VIDEO 274 LOGOUT Y NOMBRE DE USUARIO
+
+Simplemente creamos un getter hacia state.user.name y en el composable lo exponemos mediante una computed asi como la llamada al commit del logout.Pintamos en la navbar el nombre y en el boton de salir llamamos al logout(redirigimos tmb).
+Por último cambiamos las reglas de la DB ahora que ya tenemos la auth funcionando:
+{
+  "rules": {
+    ".read": "auth != null", 
+    ".write": "auth != null", 
+  }
+}
+Sin embargo vemos que esto ahora genera 401s.Lo solucionaremos muy fácil con un interceptor de axios:
+
+        VIDEO 275 INTERCEPTORES
+
+Realmente lo único que nos falta es mandar el idToken en cada petición a Firebase.Lo vamos a hacer con interceptores,pero perfectamente lo podemos hacer al crear la instancia tmb:
+
+* FORMA SIN INTERCEPTORES
+const journalApi = axios.create({
+  baseURL: "https://vue-daybooks-default-rtdb.europe-west1.firebasedatabase.app",
+  params:{
+    auth: localStorage.getItem('idToken')
+  }
+});
+
+* FORMA CON INTERCEPTORES(obviamente ya no iria la prop params en el axios.create)
+
+const journalApi = axios.create({
+  baseURL: "https://vue-daybooks-default-rtdb.europe-west1.firebasedatabase.app",
+});
+* usamos la instancia para acceder a interceptors.Siempre se recibe la config de la petición y debo retornarla tras modificarla:
+
+journalApi.interceptors.request.use( (config) => {
+  // aqui puedo usar config.headers | config.params etc
+  // auth porque Firebase dice que se debe llamar auth
+  config.params = {
+    auth: localStorage.getItem('idToken')
+  }
+  return config; <- sie
+})
+
+Desde luego es muy sencillo interceptar las requests y/o responses.El siguiente módulo testearemos todo esto(me fallarán muchas de las anteriores ya que estaban sobre un user sin autenticar)
+
+        SECCION 17 COMPOSITION API TESTING
+
+Probar el composition API puede ser engañoso, porque podemos probar literalmente todo o bien sólo lo que se expone en el return del setup y nuestros composable functions.
+
+Esta sección es quizá la más complicada por varias razones, pero no es que no podamos resolverla, puntualmente veremos:
+
+1- Testing autenticado
+2- Pruebas generales sobre el Store modularizado
+3- MockRouter
+4- Pruebas en composables
+5- Pruebas con autenticación exitosa y fallida
+6- Creación y eliminación de usuario durante pruebas
+7- Simular getters del store
+
+Al igual que la sección previa del testing, cuando probamos el Journal usando el options API, aquí crearemos un Store con ambos módulos (Auth y Journal) para que aprendamos como crear un store con la cantidad de módulos que sean necesarios en nuestras aplicaciones futuras
+
+Parte de mi objetivo con todas las pruebas que realizamos durante el curso, es que ustedes tengan un repertorio bastante grande para que puedan probar todo lo que necesiten de sus aplicaciones. 
+
+      VIDEO 279 TESTING AUTENTICADO
+
+Lo primero creamos un user más("User Test","test@test.gmail") que usaremos en los tests,los cuales podemos ver que estan fallando algunos.
+Fijate que necesitaremos un idtoken en el localStorage tal como tenemos la app.Lo unico que tenemos que hacer es llamar a su endpoint registrandonos antes:
+
+* En cada suite que falle pedimos el token y lo guardamos en el localStorage.
+  beforeAll(async () => {
+    const { data } = await authApi.post(":signInWithPassword", {
+      email: "test@test.gmail",
+      password: "123456",
+      // recuerda que este returnSecureToken es el que hace que se devuelve el idToken
+      returnSecureToken: true,
+    });
+    const { idToken } = data;
+    localStorage.setItem("idToken", idToken);
+  });
+
+En la vida real jamás debemos mezclar una base de datos de producción con la de testing.
+NOTA: Jest permite interactuar con el localStorage,tiene visión sobre él.No pasará lo mismo con otros test-runners como Mocha y habrá que mockear todo el localStorage(y sus métodos setItem,getItem,etc).Con Jest no hace falta(y lo mismo para el sessionStorage).
+Desde luego queda claro porque es la solución más usada.
+
+    VIDEO 280 PRUEBAS EN VUEX CREAR UN MOCK DEL STORE
+
+Realmente no vamos a hacer nada nuevo en este video.Simplemente exportamos una función que cree un store(mediante createStore) y que pueda recibir por argumento los estados iniciales de ambos modulos(uno ya tenemos un mock).Luego:
+
+import { createStore } from 'vuex";
+import authModule from '@/modules/auth/store';
+import journalModule from '@/modules/daybook/store/journal'; <- nunca hizo falta esa carpeta extra,supongo
+
+import { journalStateMock } from '../mocks/daybook.mocks', <- initialState mockeado que teniamos por ahi
+
+const createVuexStore = (authInitState,journalInitState = journalStateMock) => {
+  return createStore({
+    modules:{
+      auth:{
+        ...authModule,
+        state: structuredClone(authInitState)
+      },
+      journal:{
+        ...journalModule,
+        state: structuredClone(journalInitState)
+      }
+    }
+  })
+}
+export default createVuexStore;
+
+Desde luego es muy sencillo mockear stores en Vue.Fijate que para el primer modulo en la seccion anterior hicimos lo mismo pero solo con el de journal.
+
+      VIDEO 281 AUTH MODULE - VUEX MODULE
+
+Empezaremos testeando acciones,getters,initialState y mutations del auth Store.Nda que no hayamos echo ya,asi que creo un authStateMock y lo pasamos como arg en el método anterior:
+
+  test("initial state should concord", () => {
+    const store = createMainStore(authStateMock);
+    const { status, user, idToken, refreshToken } = store.state.auth;
+
+    expect(status).toBe("authenticating");
+    expect(user).toBe(null);
+    expect(idToken).toBe(null);
+    expect(refreshToken).toBe(null);
+  });
+
+      VIDEO 282 MUTATION LOGIN USER
+
+Debo leer bien las funciones,fijate que a l amutation le da igual que los valores sean correctos o no,simplemente hace algo con ellos.Teniendo esto en cuenta simplemente comprobamos que tras dispararla establezca el user como user en el state,cambie el token y el status,etc:
+
+  test("mutation loginUser should login with a valid user", () => {
+    const store = createMainStore(authStateMock);
+
+    // realmente da igual qué mandar,a la mutation loginUser le da igual,simplemente establece en el localStorage los tokens y cambia el user al user y el status a authenticated.Importante esto? quizás...
+    const payload = {
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    };
+    
+    store.commit("auth/loginUser", payload);
+    const { status, user, idToken, refreshToken } = store.state.auth;
+    
+    expect(status).toBe("authenticated");
+    expect(user).toEqual(payload.user);
+    expect(idToken).toBe(payload.idToken);
+    expect(refreshToken).toBe(payload.refreshToken);
+  });
+
+        VIDEO 283 MUTATION LOG OUT
+
+Más de lo mismo.Esta vez podemos comprobar que partiendo de un state con un user lo devuelva a null,etc.También sería buena idea comprobar que interactua con el localStorage, limpiando los valores:
+
+
+  test("mutation log out user should establish the correct values to the auth state", () => {
+    const store = createMainStore({
+      status: "authenticated",
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    });
+
+    localStorage.setItem("idToken", store.state.auth.idToken);
+    localStorage.setItem("refreshToken", store.state.auth.refreshToken);
+    expect(localStorage.getItem("idToken")).not.toBe(null);
+    expect(localStorage.getItem("refreshToken")).not.toBe(null);
+
+    store.commit("auth/logout");
+    const { status, user, idToken, refreshToken } = store.state.auth;
+
+    expect(status).toBe("not-authenticated");
+    expect(user).toBe(null);
+    expect(idToken).toBe(null);
+    expect(refreshToken).toBe(null);
+    expect(localStorage.getItem("idToken")).toBe(null);
+    expect(localStorage.getItem("refreshToken")).toBe(null);
+  });
+
+  De nuevo Jest permite interactuar con el localStorage(o el sessionStorage) de una forma muy sencilla(simplemente comprobamos sobre él)
+
+    VIDEO 284 GETTERS GET CURRENT STATE Y GETTER GET USERNAME
+
+Dado que son tan sencillos los haremos ambos en un único test.Recuerda que store.getters es un objeto y hay que acceder por la computed key:
+  test("getters currentState and username  should return auth status and user.name", () => {
+    const store = createMainStore({
+      status: "authenticated",
+      user: { name: "Fernando", email: "fernando@gmail.com" },
+      idToken: "ABC-123",
+      refreshToken: "XYZ-123",
+    });
+
+    expect(store.getters["auth/currentState"]).toBe("authenticated")
+    expect(store.getters["auth/getUsername"]).toBe("Fernando")
+    console.log({type:typeof store.getters})
+  });
+
+  VIDEO 285 ACTION CREATE USER - USER ALREADY EXISTS PATH
+
+En este punto podemos hacer dos cosas, o bien mockear la respuesta que daria Firebase o realmente hacer la consulta y ver que realmente Firebase no guarda el usuario.
+De esta forma simplemente hay que disparar la acción y ver la respuesta:
+
+  test("createUser action should be rejected due to an already existing user", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    const newUser = {
+      name: "Test User",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // obviamente el commit no tengo que mandarlo por argumento
+    const resp = await store.dispatch("auth/createUser", newUser);
+    // console.log({ resp });
+    expect(resp).toEqual({ ok: false, message: "EMAIL_EXISTS" });
+  });
+
+Fijate que el commit no necesito mandarlo y que esta prueba fallará en el momento en que Firebase devuelva otro tipo de message,por ejemplo.No es nada mantenible en el tiempo
+
+    VIDEO 286 ACTION CREATE USER - USER CREATED SUCCESFULLY
+
+En este punto tenemos el problema de el usuario deberia ser diferente en cada test para que siempre pase el test.Y dado que no tiene mucho sentido guardar un usuario nuevo lo que haremos será borrarlo despues:
+
+Docu: https://firebase.google.com/docs/reference/rest/auth?hl=es-419#section-delete-account
+Endpoint: https://identitytoolkit.googleapis.com/v1/accounts:delete?key=
+[API_KEY]
+
+Simplemente creamos un usuario y despues lo borramos(fijate que FH al final dió muchas vueltas):
+
+   test("Actions: createUser when user not exist", async () => {
+    const store = createVuexStore({
+      user: null,
+      status: "authenticating",
+      token: null,
+      refreshToken: null,
+    });
+ 
+    const newUser = {
+      name: "Tester",
+      email: "test2@test.com",
+      password: "123456",
+    };
+ 
+    const res = await store.dispatch("auth/createUser", newUser);
+ 
+    expect(res).toEqual({ ok: true });
+ 
+    const { token } = store.state.auth;
+ 
+    // Delete user create
+    await authApi.post(":delete", { idToken: token });
+  });
+
+      VIDEO 287 ACTION - CHECK AUTH STATUS - POSITIVE
+
+ Deslogeamos al usuario,nos logeamos con uno en concreto y esperamos que la action checkAuthStatus devuelva todo correcto:     
+
+   test("action checkAuthStatus should return ok when user is logged, that is, when there is the correct idToken stored in localStorage", async () => {
+    const store = createMainStore({
+      status: "not-authenticated",
+      user: null,
+      idToken: null,
+      refreshToken: null,
+    });
+    const newUser = {
+      name: "User Test",
+      email: "test@test.gmail",
+      password: "123456",
+    };
+    // deslogeamos antes ya que hay un usuario en Firebase de pruebas anteriores
+    store.commit("auth/logout");
+    // hay que llamar a la action signInUser para que guarde un idtoken valido y la action checkAuthStatus al llamar a :lookup devuelva el ok:true
+    await store.dispatch("auth/signInUser", newUser);
+    const resp = await store.dispatch("auth/checkAuthStatus");
+    expect(resp).toEqual({ ok: true });
+  });
+
+  Para el check fallido probamos sin un token en el localStorage y con uno random.
+
+        VIDEO 289 PRUEBAS EN COMPOSABLES
+
+Antes de nada pudiera parecer que la llamada al useStore hay que mockearla creando un store,pero no es asi,no hace falta.Lo importante es el return de una funcion en el testing.
+
+Aun asi vamos a mockear un store,de momento con el dispatch nos vale(fijate que en este punto no queremos que las acciones realizen la lógica que realizan,lo acabamos de testear).Muy inteligente:
+
+No tiene mucha ciencia, es un objeto con una funcion llamada dispatch
+const mockStore = {
+  dispatch: jest.fn(),
+  // commit
+  // getters
+}
+
+Algo interesante que se puede hacer en Jest es fingir librerias al completo.La libreria es vuex.Para mockear simplemente usamos jest.mock(module,factory)
+
+jest.mock('vuex',() => Object ) <- esto basicamente se traduce por => cuando se llame a vuex(que lo llama el useStore) usas el mock con lo que te diga(obviamente necesitamos que esté una jest.fn() llamada useStore)
+
+Entonces,sabiendo que el hook viene de vuex y va a llamar a una funcion useStore que devuelve un store podemos mockear la libreria y la función:
+
+jest.mock('vuex',() => ({
+  useStore: () => mockStore
+}))
+
+Todo esto lo hacemos para no llegar al backend,obviamente.Fijate que no ha llamado a la libreria en ningun momento,simplemente la ha mockeado:
+
+const mockStore = {
+  dispatch: jest.fn(),
+};
+
+jest.mock("vuex", () => ({
+  useStore: () => mockStore,
+}));
+
+describe("testing useAuth composable", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test("createUser should be resolved successfully", async () => {
+
+    const { createUser } = useAuth();
+    const newUser = { name: "Fernando", email: "fernando@gmail.com", password: "123456" };
+    // mockeamos el retorno por que la llamada a la action retorna algo,asi sabemos si retorna lo mismo que lo hizo bien(de nuevo muy interesante hacer esto tmb)    
+    mockStore.dispatch.mockReturnValue({ ok: true });
+    const resp = await createUser(newUser);
+
+    expect(resp).toEqual({ ok: true });
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/createUser", {
+      email: "fernando@gmail.com",
+      name: "Fernando",
+      password: "123456",
+    });
+  });
+
+          VIDEO 290 PROBAR UNA PETICION FALLIDA
+
+En este punto es importante entender que la funcionalidad de que la action de create user ya esta probada,solo estamos probando el hook,no es necesario que realmente sepamos si el user esta repetido,estamos ante una prueba unitaria:
+
+  test("createUser should be resolved unsuccessfully/wrongly", async () => {
+    const { createUser } = useAuth();
+    mockStore.dispatch.mockReturnValue({ ok: false, message: "EMAIL_EXISTS" });
+    const resp = await createUser(newUser);
+
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/createUser", newUser);
+    expect(resp).toEqual({ ok: false, message: "EMAIL_EXISTS" });
+
+  });
+
+Es decir,lo único que evaluamos es que el retorno de la respuesta a la llamada a la action sea lo que vemos al llamarla desde el composable.No necesitamos más,la action ya la hemos probado.De nuevo otro concepto superinteresante
+
+      VIDEO 291 LOGIN EXITOSO Y FALLIDO
+
+Ambas pruebas son básicamente lo mismo que ya estamos realizando:
+  test("loginUser should be resolved successfully", async () => {
+    const { loginUser } = useAuth();
+    
+    mockStore.dispatch.mockReturnValue({ ok: true });
+    const resp = await loginUser(newUser);
+    
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/signInUser", newUser);
+    expect(resp).toEqual({ ok: true });
+  });
+
+   test("loginUser should be resolved unsuccessfully/wrongly", async () => {
+    const { loginUser } = useAuth();
+
+    mockStore.dispatch.mockReturnValue({ ok: false, message: "EMAIL_DOES_NOT_EXISTS" });
+    const resp = await loginUser(newUser);
+    
+    expect(mockStore.dispatch).toHaveBeenCalledWith("auth/signInUser", newUser);
+    expect(resp).toEqual({ ok: false, message: "EMAIL_DOES_NOT_EXISTS" });
+  }); 
+
+        VIDEO 292 PRUEBAS EN EL LOGOUT
+
+Fijate que el logout es una funcion que hemos creado en el hook que llama a dos mutations.Asi que lo primero tendremos que mockear la funcion commit:
+
+Esto es lo que hace logout del composable
+  const logout = () => {
+    store.commit('auth/logout')
+    store.commit('journal/clearEntries')
+  }
+
+  Mockeamos el commit tmb:
+  const mockStore = {
+  dispatch: jest.fn(),
+  commit: jest.fn(),
+  // getters
+};
+
+Y esperamos que se llame dos veces.Fijate que incluso podemos saber con qué argumentos se ha llamado y si han sido dos la segunda será el segundo toHaveBeenCalledWith.Muy interesante eso
+  test("logout", async () => {
+    const { logout } = useAuth();
+
+    logout();
+    
+    expect(mockStore.commit).toHaveBeenCalledWith("auth/logout");
+    expect(mockStore.commit).toHaveBeenCalledWith("journal/clearEntries");
+    expect(mockStore.commit).toHaveBeenCalledTimes(2);
+  }); 
+
+  VIDEO 293 PRUEBAS EN PROPIEDADES COMPUTADAS DEL COMPOSABLE
+
+  Si nos fijamos tmb retornamos un par de computed que acceden al store.getters.Ojo que mockearlos tiene un poco de ciencia,ya que las keys tienen que lucir de esta forma:
+
+  const mockStore = {
+  dispatch: jest.fn(),
+  commit: jest.fn(),
+  getters: {
+    "auth/currentState": "authenticated",
+    "aut/getUsername": "asinto",
+  },
+};
+Además el valor no es una jest.fn pues es un valor,el que quiera.Si quiero puedo cambiarlo para cada prueba(pero no con mockReturnedValue ya que es para funciones,y mockResolved para promesas).Simplemente tengo que reasignar:
+
+mockStore.getters['auth/currentState'] = "processing";
+
+IMPORTANTE: una computed es un objeto reactivo,es muy parecido a una ref,si quiero acceder al valor es con .value luego:
+
+  test("authStatus should retrieve status through the getter", () => {
+    const { authStatus } = useAuth();
+
+    mockStore.getters['auth/currentState'] = "processing";
+    console.log({ authStatus });
+    expect(authStatus.value).toBe("processing"); <- ojo que es authStatus.value
+  });
+Todo bien claro
+
+      VIDEO 294 PRUEBAS EN EL CMP NAVBAR
+
+ Recuerda que para pasar un store a un componente en Vue va como un plugin en los global:
+
+const store = createMainStore(authMock);
+
+ const wrapper = shallowMount(NavbarVue, {
+  global:{
+    plugin: [store] <- el componente usará ese store
+  }
+ })
+
+ NOTA: si hacemos un console.log del html veremos un warning sobre ese hook useRouter(que al final es por lo que estamos haciendo todo esto):
+
+console.log(wrapper.html());ç
+
+  [Vue warn]: injection "Symbol(router)" not found. 
+  at <Anonymous ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+Parece que hay que inyectar el router.Lo veremos en el siguiente video
+
+      VIDEO 295 PRUEBAS CON EL ROUTER EN COMPOSITION API
+
+Para lograr hacer que el router funcione en el Composition API en la parte de testing vamos a tener que usar una libreria de terceros(Fernando tuvo problemas haciendo el mock completo de la libreria vue-router pero no lo consiguio) 
+Docu:https://github.com/posva/vue-router-mock
+>yarn add vue-router-mock
+
+Despues seguir con las dos configuraciones en el jest.config y jest.setup que pide.Fijate que en jest.setup puedo configurar establecer cosas y en el config las configuro/declaro y por ello las tendré en los test.Muy interesante
+
+Ya solo es crear una prueba válida.Recuerda que estamos redireccionando por name al login y disparando el commit del logout asi que :
+
+const wrapper = shallowMount(NavbarVue,{
+  global:{
+    plugin: [store]
+  }
+})
+await wrapper.find('button').trigger('click');
+expect(wrapper.router.push).toHaveBeenCalledWith({
+  name:'login
+})
+expect(store.state.auth).toEqual({
+  user:null,
+  idToken:null
+})
+
+IMPORTANTE: todas las pruebas que estan usando el router con el Options API ahora van a fallar.Se supone que nunca debimos mezclar APIs asi que no sería muy importante esto.La solución tmb habria sido no configurar esta libreria globalmente sino solo para esta suite
+
+NOTA: realmente siempre pudimos haber mockeado la libreria de forma natural.No hacia falta nada de esto.Muy prehistoric aqui el profe:
+
+const mockRouter = {
+  push:jest.fn()
+}
+
+jest.mock('vue-router',() => ({
+  useRouter:() => mockRouter
+}))
+
+        VIDEO 296 MANTENER PRUEBAS CON AMBOS ROUTERS
+
+Realmente es probable que tenga que trabajar en una aplicación que tenga el router configurado de las dos maneras.Hemos visto que usando una u otra no tendriamos problemas pero si mezclaramos APIs seria simplemente usar la estrategia local en vez de global:
+
+* Agregar esto a cada file
+const {
+  VueRouterMock,
+  createRouterMock,
+  injectRouterMock,
+} = require('vue-router-mock')
+const { config } = require('@vue/test-utils')
+
+// create one router per test file
+const router = createRouterMock()
+beforeEach(() => {
+  injectRouterMock(router)
+})
+
+// Add properties to the wrapper
+config.plugins.VueWrapper.install(VueRouterMock)
+
+Basicamente es omitir la llamada al setupFilesAfterEnv y unicamente pegarlo en cada file.Obviamente esta libreria no tiene sentido,es mejor crear un mock del modulo y ya
+
+        VIDEO 297 PRUEBAS EN EL LOGIN COMPONENT
+
+Ya solo falta el login y el register.Fijate que tengo que mockear el store y el vue-router,ya que el useAuth está disparando actions y commits
+NOTA: una vez que tengo una funcion mockeada puedo hacer que devuelva lo que quiera con mockReturnValue:
+store.dispatch = jest.fn()
+store.dispatch.mockReturnValueOnce({of:false,message:"anything})
+Supongo que es lo mismo que el oneliner jest.fn().mockReturnValueOnce
+
+NOTA: fijate de nuevo que si pongo un console.log en las templates lo veré desde las pruebas:
+
+console.log
+    { ok: false, message: 'Error en credenciales' }
+      at Proxy.onSubmit (src/modules/auth/views/Login.vue:58:19) <- linea 58
+
+Con todo esto podemos crear un test asi:
+
+const mockRouter = { <- fijate que el nombre no podia empezar por router
+  push: jest.fn()
+}
+jest.mock("vue-router", () => ({
+  useRouter: () => mockRouter
+}))
+
+import Swal from 'sweetaler2'; <-  y este porque si necesita su import real ??
+jest.mock("sweetalert2", () => ({
+  fire: jest.fn(),
+  close: jest.fn(),
+  showLoading: jest.fn()
+}))
+
+describe('pruebas en login', () => {
+  const store = createMainStore({
+     status: "not-authenticated",
+    user: null,
+    idToken: null,
+    refreshToken: null,
+  })
+  store.dispatch = jest.fn()
+  beforeEach(() => jest.clearAllMocks());
+
+  it('debe de resolver el login con un error', async () => {
+    const wrapper = shallowMount(LoginVue,{
+      global:{
+        plugin:[store],
+        stubs:['vue-router']
+      }
+    })
+    store.dispatch.mockReturnValueOnce({ok:false,message:"incorrect credentials"});
+    await wrapper.find("form").trigger("submit");
+   expect(store.dispatch).toHaveBeenCalledWith("auth/signInUser,{email:'',password:''});
+   expect(Swal.fire).toHaveBeenCalledWith("Error,"incorrect credentials","error")
+  })
+})
+
+La siguiente prueba debe comprobar que unas credenciales correctas dispara el router y nos mueve a no-entry:
+
+ it("Debe de resolver el login con exito y redirigir a no-entry", async () => {
+    store.dispatch.mockReturnValueOnce({ ok: true });
+
+    const wrapper = shallowMount(LoginVue, {
+      global: {
+        plugins: [store],
+        stubs: ["router-link"],
+      },
+    });
+
+    // buscar por todos tmb me valia,siempre los va a encontrar en el mismo orden
+    // const [ txtEmail,txtPass] = wrapper.findAll('input')
+
+    const textInput = wrapper.find('input[type="text"]');
+    // ojo que setValue es asincrono!!
+    await textInput.setValue("Fernando@gmail.com");
+    const passInput = wrapper.find('input[type="password"]');
+    await passInput.setValue("ABCabc123@");
+
+    await wrapper.find("form").trigger("submit");
+    expect(store.dispatch).toHaveBeenCalledWith("auth/signInUser", {
+      email: "Fernando@gmail.com",
+      password: "ABCabc123@",
+    });
+
+    expect(Swal.fire).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: "no-entry" });
+  });
+
+  El register sería lo mismo,no tiene mucho sentido hacerlo fuera de un ambiente laboral
+Recuerda que Element.setValue es asincrono

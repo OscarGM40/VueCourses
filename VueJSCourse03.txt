@@ -1,0 +1,1906 @@
+        SECCION 10 INTRODUCCIÓN A VUEX
+
+Vuex es similar a Redux en React,es su gestor de estado,es decir,essu solución para gestionar el paso de información entre componentes alejados en el árbol.
+Es una sección fundamental.
+Vuex es su gestor de estado más usado en Vue.Conceptos generales:
+
+State:objeto reactivo con el estado actual/inicial
+acciones: acciones asincronas que modifican el state
+mutations: una acción siempre llama a una mutación,y es ésta la que cambia el state realmente
+getters: los getters son una forma pre-procesada de obtener información del store rápidamente(custom selectors??)
+
+NOTA:en el momento en que necesite trabajar con VueX en una aplicación debo trabajar en base a módulos(extrapolable a React o Angular)
+
+Esta sección esta dedicada a tener una introducción a Vuex, como gestor de estado global de nuestra aplicación, puntualmente veremos:
+
+1- ¿Qué es Vuex?
+2- ¿Qué problema resuelve Vuex?
+3- Actions
+4- Getters
+5- Mutations
+6- State
+7- Módulos
+8- Segmentación
+9- Vuex DevTools
+
+      VIDEO 140 INTRODUCCION A VUEX
+
+La idea de VueX es crear un store,para que cualquier componente pueda consumirlo y/o actualizarlo.Esto reduce mucho la complejidad que si fuera todo por props,etc.Recuerda que el state de ese store es totalmente reactivo,cualquier cambio en él disparará cambios en las vies
+El flujo de información es igual que en Redux,Flux o la arquitectura Elm(en resumen, cualquier gestor de estado),donde las acciones notifican al estado,el cual notifica a la vista.
+VueX está diseñado especificamente para trabajar con Vue.Las vistas harán dispatch de una acción,esa acción hace el commit de una mutation.Las mutaciones son sincronas(no pueden ser asincronas).Se llaman asi porque es codigo que al final va a terminar mutando nuestro state.
+No necesariamente hay que pasar por una accion para disparar una mutation.Se puede llamar al commit directamente desde una view.
+Como el state es reactivo,cualquier view que consuma ese state será actualizado.
+NOTA:las acciones pueden ser tanto asincronas como sincronas,luego siempre tendré que usar una acción cuando haya asincronia.Las mutaciones solo pueden ser síncronas.
+Una acción tampoco puede modificar directamente el state,siempre debe pasar por el commit de una mutación.
+
+Conceptos generales:
+
+State: similar a la data(),es reactivo
+Getters: similares a las propiedades computadas
+Mutations: funciones que pueden modificar el state(no tienen porque modificarlo)
+Actions: funciones que pueden ser asíncronas y pueden llamar a mutations(ojo con ambos pueden)
+Modules: basicamente es un agrupador en el que puedo tener state,getters,mutations,actions e incluso otros modules(entiendo que es un slice del store)
+Un store es basicamente un agrupador de modulos,pues.
+
+Debo usar VueX cuando la app sea minimamente compleja y lo necesite.No es nada dificil de implementar.
+
+VIDEO 142 INSTALACION MANUAL DE VUEX
+
+NOTA: VueX 4 en adelante da soporte tanto a la Options API como a la compositions API.Fernando provee el siguiente enlace con la docu:
+https://vuex.vuejs.org/installation.html#direct-download-cdn
+
+Alli puedo ver que puedo incluso usar una CDN,pero lo haremos con yarn:
+npm install vuex@next --save <- puedo ver que me instaló  "vuex": "^4.0.2" 
+
+Una vez instalada la lib puedo seguir por aqui:
+https://vuex.vuejs.org/guide/
+
+TIP: recuerda que un store es un contenedor para el state de la aplicación.Recuerda que el state es un simple mega-objeto,pero que es reactivo y al que no se le puede mutar directamente,hay que usar comitted mutations.Creamos un store supersimple de momento:
+
+En /src/store/index.js:
+
+import { createStore } from 'vuex' 
+const store = createStore({
+  // estado inicial
+  state:{
+    count : 1
+  }
+})
+
+export default store;
+
+El main.js lo tiene que consumir con .use(slice):
+En el main.js:
+import store from './store';
+
+createApp(App)
+  .use(store)
+  .mount('#app');
+
+Si ahora voy a las devTools debería ver ese state con el counter.
+
+            VIDEO 143 LEER EL STATE REACTIVO
+
+
+De nuevo y por última vez recuerda que el state es un objeto reactivo,cualquier cambio en él va a notificar a cualquier vista que lo consuma
+
+Fijate que puedo acceder directamente al store con $store(aqui si me parece que gana a React en accesibilidad al state)
+<template >
+  <h1>Counter - Vuex </h1>
+  <h2>Direct access: {{ $store.state.count }}</h2>
+</template>
+
+Incluso desde Javascript:
+<template>
+  <h1>Counter - Vuex</h1>
+  <h2>Direct access: {{ $store.state.count }}</h2>
+  <h2>Computed {{ countComputed }}</h2>
+  <h2>ShitComputed {{ anotherShitComputed }}</h2>
+</template>
+
+<script>
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+  },
+};
+</script>
+
+Sin embargo,no es lo normal acceder tan directamente al state.Lo normal es usar un mapeo previo del que sacamos lo que necesitemos:
+
+<script>
+import { mapState } from "vuex";
+
+console.log(mapState(["count",'lastMutation']));
+
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState(["count"]),
+  },
+};
+</script>
+
+Para ello vuex me ofrece los métodos mapState ó mapMutations ó mapActions,etc y no tener que usar $store.state.XXX.
+NOTA: hay varias maneras de acceder a una propiedad del state:
+1 => con mapState(['propName1','propName2'])
+2 => con mapState({counter: state => state.count }) <- útil para renombrar una prop del state
+
+
+Obviamente puedo sacar las que quiera:
+export default {
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.count,
+      lastMutation: state => state.lastMutation
+    }),
+  },
+};
+
+                  VIDEO 144 MUTATIONS
+
+Recuerda que el state en producción no puedo cambiarlo desde las devTools,solo en desarrollo.Pero aunque podemos hacerlo desde las devTools realmente se hace desde código,commiteando una mutation.
+
+Para crear una mutation es igual que si fuera methods o computed en un componente,pero en el createStore:
+const store = createStore({
+  // estado inicial
+  state:{
+    count : 1,
+    lastMutation: 'none'
+  },
+  mutations:{
+    increment(state){
+      state.count++;
+      state.lastMutation = 'increment'
+    }
+  }
+})
+Fijate que las mutations no tienen acceso por defecto al state y lo tengo que pasar como argumento en cada mutation.
+
+Recuerda también que no puedo mutar el state,y que las mutations se commiteaban luego tengo que acceder desde una vista con this.$store.commit('name of the mutation declared'):
+
+  methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    }
+  },
+Y si necesitara argumentos desde el commit hay que mandarlos(obviamente los recibo como segundo argumento):
+En el store:
+ mutations: {
+    increment(state) {
+      state.count++;
+      state.lastMutation = "increment";
+    },
+    incrementBy(state,value) {
+      state.count += value;
+      state.lastMutation = "incrementBy";
+    },
+  },
+
+  Y desde la view:
+   incrementBy(){
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+
+VIDEO 145 ACTIONS
+
+Al igual que tengo el state y las mutations en el createStore tengo la propiedad actions.Usualmente las actions son asincronas,por ejemplo comprobar algo con una peticion http y ya despues se hace el commit de una mutation(con lo que parece que la asincronia serán dos funciones en Vue ??)
+
+async function getRandomInt(){
+ return await new Promise( resolve => { <- recuerda que el return ya es asincrono,me hace de await tmb
+    const rndInt = Math.random().toFixed(2)*100;
+    setTimeout(() => resolve(rndInt), 1000);
+    
+  })
+}
+
+Bien,ahora tiene que quedar claro que las acciones no pueden mutar el state,y por ello no necesitan acceder a él.Si quisieran mutarlo tienen que hacerlo mediante una mutation,y por ello si tienen acceso al contexto,que es el module actual o el propio store,si no hubiera modulos:
+
+ actions: {
+    // en el caso de una acción lo que recibe como primer argumento es un context,y no un state.El context tiene la referencia sobre el store(o módulo en el que me encontrara,en este caso es el store ya que no hay slices)
+    async incrementRandomInt(context){
+      // recuerda que una acción no puede mutar el state,eso solo lo puede hacer una mutation
+      // state.loading = true <- no se puede con una action
+
+      // DESDE UNA ACTION TENGO QUE USAR EL CONTEXT PARA ACCEDER A UNA MUTATION QUE CAMBIE EL STATE
+      context.commit('changeLoading',true)
+      const randomInt = await getRandomInt()
+      context.commit('incrementBy',randomInt)
+      context.commit('changeLoading',false)
+      
+    }
+  }
+
+  Y para llamar desde la view a una action de momento lo podemos hacer mediante this.$store.dispatch('action name',args?).-Fijate que las acciones se disparan y las mutations se commitean.
+  <button @click="incrementRandomInt">Random</button>
+
+    incrementRandomInt(){
+      this.$store.dispatch('incrementRandomInt')
+    }
+
+TIP:fijate que llamar a una función para que llame al dispatch realmente podría llamar al dispatch directamente desde la template.Veremos como hacerlo en breve
+
+            VIDEO 146 MAP ACTIONS
+
+Actually it doesn't have any sense having a method that inmediately returns another.Podemos usar el método mapActions de manera similar al mapState(aunque uno va en los methods y otro en las computed props):
+
+import { mapState, mapActions } from "vuex";
+
+export default {
+  methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    },
+    incrementBy(){
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+    ...mapActions(['incrementRandomInt'])
+  },
+  computed: {
+    countComputed() {
+      return this.$store.state.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.count,
+      lastMutation: state => state.lastMutation
+    }),
+  },
+
+NOTA: también puedo usar esta forma para renombrar(de echo tengo que usarla para las actions):
+ ...mapActions({
+      randomInt: 'incrementRandomInt'
+    })
+en el mapState puedo hacer algo similar(aqui si tengo dos opciones):
+...mapState({
+  counter: 'counter' 
+})      
+
+IMPORTANTE: también de manera similar al mapState,cada action que me traiga la puedo usar en cualquier parte de ese componente ya:
+ methods:{
+    increment(){
+      this.$store.commit('increment'); // ojo es el nombre de la mutación
+    },
+    incrementBy(){
+      this.randomInt() <- LA PUEDO USAR AQUI PUES YA TENGO VISION SOBRE ESA ACCION DESDE QUE LA TRAJE CON EL MAPACTIONS
+      this.$store.commit('incrementBy',5); // ojo es el nombre de la mutación
+    },
+    ...mapActions({randomInt: 'incrementRandomInt'})
+
+        VIDEO 147 BLOQUEAR BOTON MIENTRAS UNA ACCIÓN TRABAJA
+
+Tarea muy sencilla,crear una propiedad isLoading y en la action llamar a una mutation que la cambie,despues sacarla con el mapState y usarla en el disabled con un v-bind:
+
+ async incrementRandomInt({commit}) {  // mejor desestructurar el context,asinto
+      // DESDE UNA ACTION TENGO QUE USAR EL CONTEXT PARA ACCEDER A UNA MUTATION QUE CAMBIE EL STATE
+      commit("setLoading", true);
+      const randomInt = await getRandomInt();
+      commit("incrementBy", randomInt);
+      commit("setLoading", false);
+    }
+
+En la template acceder al state
+<button @click="randomInt" :disabled="isLoading">Random</button>
+
+        VIDEO 148  GETTERS
+
+Ya hemos visto en el método createStore las propiedades state(para definir el state),mutations(para mutarlo sincronamente) y las actions(para poder usar asincronia,recuerda que tienen acceso al context y pueden commitear mutations si es necesario).Vamos a ver otra propiedad más,los getters.
+
+Los getters pueden ser llamados en cualquier parte de la aplicación,son muy parecidos a una computed property(diria que son como un acceso rápido a una parte del state/módulo),lo cual muchas veces puede ser más eficiente que traer todo el slice concreto:
+
+  actions: {
+    async incrementRandomInt({commit}) {  // mejor desestructurar el context,asinto
+      commit("setLoading", true);
+      const randomInt = await getRandomInt();
+      commit("incrementBy", randomInt);
+      commit("setLoading", false);
+    },
+  },
+  getters:{
+    squareCount(state){
+      return state.count * state.count
+    }
+Fijate que tienen acceso al state,por motivos obvios,ya que son un acceso rápido al mismo(incluso pueden valer para hacer alguna operación sencilla)
+NOTA:obviamente este getter se va a actualizar cuando cambie a lo que apunta(en este caso state.count) ya que son totalmente reactivos.
+
+Para acceder desde la template Vuex nos ofrece el mapGetters,aunque también podemos acceder mediante $store.getters:
+ <h2>Direct getter:{{ $store.getters.squareCount}} </h2>
+
+      VIDEO 149 MODULES - INTRO
+
+Casi nunca voy a usar un único estado.Normalmente será una unión de varios slices lo que conformará el store.No tiene sentido tener un único store asi:
+state :{
+  counter,
+  products: [],
+  selectedProduct:{},
+  auth:{name: 'Fernando},
+  isLoading:false
+} 
+Hay demasiada mezcla de conceptos/lógica de negocio.La idea es separar en módulos el state de la app según agrupaciones lógicas.
+
+const store = createStore({
+  modules: {
+    account: {
+      namespaced: true,
+      state: () => ({ ... }), // recuerda que state necesita ser reactivo y tiene que ser una callback su valor(parece que debe ir debajo de namespaced: true también)
+      getters: {
+        isAdmin () { ... } // -> getters['account/isAdmin']
+      },
+      actions: {
+        login () { ... } // -> dispatch('account/login')
+      },
+      mutations: {
+        login () { ... } // -> commit('account/login')
+      },
+
+Recuerda que usar namespaced a true es casi una obligación(y que y).Poner namespaced a true encapsulará ese módulo.
+
+Fijate también que por defecto las actions,los getters y mutations son registradas bajo el namespace global pero ahora ya no funcionan.Lo arreglaremos en el siguiente video
+
+VIDEO 150 ACTIONS-GETTERS-MUTATIONS-STATE ACCESO DESDE UN MODULO
+
+Simplemente tenemos que ajustar las rutas,ya que hemos creado una abstracción.
+
+UNO: para el acceso directo al state tengo que usar $store.state.<modulo>.count:
+* Luego tengo que cambiar cualquier $store.state
+ <h2>Direct access: {{ $store.state.counter.count }}</h2>
+
+ DOS: lo mismo para cualquier otra zona,como la computed:
+
+ computed: {
+    countComputed() {
+      return this.$store.state.counter.count;
+    },
+    anotherShitComputed() {
+      return this.countComputed;
+    },
+    ...mapState({
+      counter: state => state.counter.count,
+      lastMutation: state => state.counter.lastMutation,
+      isLoading: state => state.counter.isLoading
+    }),
+  },
+
+TRES: para las mutations hay que anteponer el modulo:
+  methods:{
+    increment(){
+      // ojo es 'modulo/mutation
+      this.$store.commit('counter/increment'); 
+    },
+    incrementBy(){
+      this.$store.commit('counter/incrementBy',5); 
+    },
+
+CUATRO: lo mismo para las actions:
+  ...mapActions({
+      randomInt: 'counter/incrementRandomInt'
+    })
+
+Fijate que si usará la forma con el array ahora tendrá dos argumentos,el primero es el modulo:
+mapActions('counter',['incrementRandomInt'])
+Dependerá de la sintaxis
+
+Lo mismo con el mapState si hubiera usado la notación con el array:
+mapState('counter',['counter','lastMutation','isLoading])
+
+Fijate que en este punto queda bien claro que es mucho más sencillo usar mapState o mapActions con arrays al trabajar con módulos,solo hay que poner un argumento.Es decir,no usar esto:
+    
+    ...mapState({
+      counter: state => state.counter.count,
+      lastMutation: state => state.counter.lastMutation,
+      isLoading: state => state.counter.isLoading
+    }),
+
+QUINTO: el acceso directo al getter también cambia e inclusive hay que usar otra sintaxis:
+ <h2>Direct getter:{{ $store.getters['counter/squareCount']}} </h2>
+
+        VIDEO 151 SEPARAR UN MÓDULO EN ARCHIVOS INDEPENDIENTES
+
+Queremos separar el state,las acciones,las mutaciones,los getters de nuestro módulo cada una a un archivo independiente.Creamos pues un archivo para cada prop en esa carpeta.
+
+En el state.js exporto la funcion que hacia el state reactivo:
+export default () => ({
+    count: 1,
+    lastMutation: "none",
+    isLoading: false,
+    lastRandomInt: 0,
+  });
+
+En el mutations.js ahora tendré que exportara cada función(además ahora son funciones,antes eran métodos):
+export function increment(state) {
+  state.count++;
+  state.lastMutation = "increment";
+}
+export function incrementBy(state, value) {
+  state.count += value;
+  state.lastMutation = "incrementBy";
+  state.lastRandomInt = value;
+}
+export function setLoading(state, value) {
+  state.isLoading = value;
+  state.lastMutation = "setLoading";
+}
+
+Lo mismo paa las acciones:
+En el actions.js:
+import getRandomInt from "@/helpers/getRandomInt";
+
+export async function incrementRandomInt({ commit }) {
+  commit("setLoading", true);
+  const randomInt = await getRandomInt();
+  commit("incrementBy", randomInt);
+  commit("setLoading", false);
+}
+
+IMPORTANTE: estos archivos que exportan funciones tienen que exportar cada una por separado,y por ello puedo importarlas despues con *:
+import * as mutations from "./mutations";
+y despues pasarlas asi:
+mutations:mutations  <- lo cual se puede resumir desde ECMA2016
+
+Lo mismo para los getters.Al final me quedará algo asi:
+
+const counterStore = {
+  namespaced:true,
+  state,
+  mutations,
+  actions,
+  getters
+}
+export default counterStore;
+
+Desde luego queda muy limpio.Teniendo en cuenta que no siempre tendré los getters puede ser interesante perder cohesión ya que ganar esta modularidad parece buen intercambio
+Obviamente queda mucho más fácil dar mantenimiento a cada una de estas piezas,o escalar funcionalidad,etc.
+
+      SECCION 11 JOURNAL APP - OPTIONS API + VUEX
+
+Vamos a crear una app que maneje la entrada de registros a un diario.Usaremos getters con funciones.Crearemos tokens,peticiones HTTP,el backend,etc.Serán varias secciones.
+
+En esta sección crearemos y configuraremos una aplicación para llevar registro de un diario, todo trabajado con OptionsAPI y Vuex, puntualmente haremos lo siguiente:
+
+1- Configuración de módulos en Vuex
+2- Configurar un backend para realizar peticiones http
+3- Getters con argumentos
+4- Controlar el state global y modular
+5- Diferentes rutas principales y rutas hijas
+6- Rutas con diferentes templates o plantillas
+Y más
+
+En esta sección aún no haremos nuestro CRUD, pero lo dejaremos todo preparado para la siguiente, pero todo lo que veremos aquí será de mucha utilidad para ustedes
+
+        VIDEO 155 -156 -157 INICIO PROYECTO - CONFIGURAR BOOTSTRAP -AÑADIR SASS
+
+Docu: https://getbootstrap.com/
+
+Creamos una nueva app con 'vue create <app-name>'.Elegimos el router y el linter,aparte de babel.
+Fijate que FH nos muestra un ejemplo en el que se trae Bootstrap mediante un CDN,pero al hacerlo asi no podemos modificar el SASS(no pudiendo sobreescribir ningun color,etc).Al instalarlo podemos sobreescribir la configuración por defecto(fijate que con una CDN no podria hacer nada más que tener el bootstrap por defecto)
+>yarn addd bootstrap
+
+Aun falta importar la libreria(fijate que vamos a crear un styles/styles.scss con el siguiente import):
+@import 'node_modules/bootstrap/scss/bootstrap.scss';
+
+Ya en el main.js importamos ese archivo
+
+import "./styles/styles.scss";
+createApp(App).use(router).mount("#app");
+
+Pero fijate que nos pide sass-loader(aparte del core sass).No tiene sentido que no sean para desarrollo only:
+>yarn add -D sass-loader@10 sass
+
+Esta es la forma a proceder cuando quiero personalizar Bootstrap más allá de su configuración por defecto.
+
+Para cambiar los colores antes del import(tiene que ser antes) puede remapear los valores de la variable $theme-colors:
+$theme-colors: (
+  "primary": #2c3e50,
+  "secondary": #1d6042,
+  "success": #198754,
+  "info": #0dcaf0,
+  "warning": #ffc107,
+  "danger": #dc3545,
+  "light": #f8f9fa,
+  "dark": #343a40,
+);
+@import "node_modules/bootstrap/scss/bootstrap.scss";
+
+      VIDEO 158 ESTRUCTURA MODULAR
+
+En cualquier aplicación mediana o grande la estructura de tener todo colgando de src se queda un poco pequeña(estructura de directorios).Podria terminar con decenas o cientos de componentes en el directorio componentes(que además no tendrán relación de negocio entre muchos de ellos).En este tipo de aplicaciones hay que seguir una estructura modular.
+Tener una estructura modular incluso me podria valer para importar modulos a otros proyectos.Obviamente,es la estructura a seguir(debo tratar de implementarla siempre)
+Para implementar este tipo de estructura simplemente creo la carpeta modules colgando de src(src/modules).Despues de momento creamos dos modulos auth y daybook(src/modules/auth y src/modules/daybook).Dentro de cada uno ya puedo crear sus componentes,rutas,views,layouts,api,helpers,etc.
+
+Bien,implementemos las rutas hijas,va a ser muy fácil.Dado que una ruta padre con hijas luciría asi:
+ {
+    path: '/',
+    name: 'home',
+    component: HomeView, <- o lo traigo asi o con lazyLoad,pero viene un Componente
+    children:[]
+  },
+lo que vamos a hacer es definir en el router/index.js padre solo la propiedad path y el resto en cada router/index.js de cada modulo:
+
+En el mainRouter:
+
+import dayBookRoutes from '../modules/daybook/router'
+   ...rutas principales....
+  {
+    path: '/daybook',
+    ...dayBookRoutes <- spread de la export default
+  }
+  En el archivo de rutas de cada modulo(en el que quiera,claro):
+
+  export default {
+  name: "daybook",
+  component: () => import(/* webpackChunkName: "daybook" */ "@/modules/daybook/layouts/DayBookLayout.vue"),
+  children: [],
+};
+Faltaría el <router-view> para las rutas hijas
+
+    VIDEO 159 ESTRUCTURA DEL DAYBOOK LAYOUT
+
+Maquetación pura y dura.Fijate donde vamos a renderizar las rutas hijas( en la col de 8 restante):
+
+En el DaybookLayout.vue:
+<template>
+  <Navbar />
+  <div class="d-flex">
+    <div class="col-4">
+      <EntryList />
+    </div>
+    <div class="col">
+      <router-view></router-view>
+    </div>
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+
+export default {
+  components: {
+    Navbar: defineAsyncComponent(() => import("../components/Navbar.vue")),
+    EntryList: defineAsyncComponent(() => import("../components/EntryList.vue")),
+  },
+};
+El EntryList será la lista de entradas(una entrada será el cmp Entry)
+Recuerda agregar a las rules "vue/multi-word-component-names": "off" si sale el error de multi-word needed
+  
+      VIDEO 160 COMPONENTES ENTRY-LIST Y ENTRY
+
+NOTA: fijate que cada <template></template> debe tener al menos una etiqueta,no puede haber componentes vacíos en Vue.
+El componente EntryList barre con un v-for la coleccion de items.También tiene un Input arriba,para buscar una entrada:
+<Entry v-for="entry in 10" :key="entry"></Entry> <- recuerda que estos prehistorics usan un for in y que en Vue no uso 'let index'.
+El componente EntryList es simplemente la entrada
+
+    VIDEO 161 COMPONENTE FAB Y NO-ENTRY-SELECTED
+
+Creamos un boton y lo ponemos con position fixed a la dcha y abajo.El No entry es para cuando no haya una entrada seleccionada.Creamos su ruta.
+
+    VIDEO 162 ENTRYVIEW
+
+Creamos la View y su ruta(es daybook/:id).Seguir la maquetación.
+
+    VIDEO 163 TAREA CREAR PROP ICON PARA EL FAB
+
+Este video es interesante,ya que mediante la prop vamos a mostrar una clase u otra.Yo usé una propiedad computada para gestionar toda la clase,pero hay más formas:
+
+ <button class="btn btn-primary">
+    <i :class="parseClass"></i>
+  </button>
+</template>
+
+<script>
+
+export default {
+  props:{
+    icon:{
+      type: String,
+      default: "fa-plus"
+    }
+  },
+  computed:{
+    parseClass(){
+      return "fa fa-2x " + this.icon
+    }
+  }  
+}
+
+Otra forma muy interesante es dejar con el atributo 'class' lo que sea común y despues usar un v-bind con :class.Vue va a juntar todo en la misma clase.De estar forma me quitaba de usar una computed property:
+
+ <button class="btn btn-primary">
+    <i 
+      class="fa fa-2x"
+      :class="icon"></i>
+  </button>
+</template>
+
+<script>
+
+export default {
+  props:{
+    icon:{
+      type: String,
+      default: "fa-plus"
+    }
+  }
+}
+
+Ojo,solo puede haber un v-bind a class por elemento.Interesante.
+
+    VIDEO 164 INSTALAR VUEX + MODULO REUTILIZABLE
+
+Usualmente usare Vuex(el store) en base a módulos.Lo primero es instalar la libreria:
+>yarn add vuex@next -S
+
+Ahora si,creamos una carpeta store(src/store) para el store global de la aplicación(por ejemplo ui,providers globales,etc).Despues creo otra carpeta store por cada modulo(src/auth/store y src/daybook/store).Cada uno de ellos tendrá el store de ese modulo 
+NOTA: un módulo puede incluso a ser lo suficientemente grande como para crearle submodulos o varios stores.No es muy normal esto,realmente.
+
+En este punto vamos a crear un módulo cascarón reutilizable.En este modulo/carpeta creo 5 files,el actions.js para las acciones asincronas,el mutations.js,el getters.js y el state.js.En el quinto file index.js lo usamos como barrel file y para juntar todo:
+
+En el index.js:
+import state from './state';
+import * as actions from './actions';
+import * as getters from './getters';
+import * as mutations from './mutations';
+
+const myCustomModule = {
+  namespaced:true,
+  actions,
+  getters,
+  mutations,
+  state
+}
+
+export default myCustomModule;
+
+Este modulo simplemente tendría que cambiar el naming de funciones,etc según modulo a aplicar.Es algo que haremos ya.
+
+  VIDEO 165 MODULO VUEX-MODULE  USANDO MODULO REUTILIZABLE
+
+ Recuerda que vamos a usar stores modularizados.Esto cambia un poquito de usar uno solo,ya que tengo que usar una propiedad modules en el createStore:
+
+ en el src/store/index.js (me traigo todos los stores por modulo)
+ const store = createStore({
+  modules: {
+    a: moduleA,
+    b:moduleB
+  }
+ })
+ 
+ * Obviamente este store es el que le paso al main.js(actually we can only use one store,obviously).
+ app.use(store).use(xxx)
+
+ Y cada moduleA será el exp default de cada store/{module}/index.js.Muy interesante,asinto
+
+En nuestra app el src/store/index.js quedaría asi:
+import journalModule from '../modules/daybook/store/journal';
+
+const store = createStore({
+modules:{
+  journal: journalModule
+}
+})
+
+export default store
+
+TIP: el store tendrá que ir antes de las rutas,logicamente
+createApp(App).use(store).use(router).mount("#app");
+Desde luego es muy fácil crear un Store modularizado en Vue.Muy interesante la estructura que usó Fernando.
+
+Por último nos creamos ya varias acciones,getters y mutations.Recuerda que las acciones serán acciones asincronas que tendrán impacto en la base de datos,los getters son acciones sincronas para acceder a una parte del store(por ejemplo acceder con una ordenación,con un filtro,etc) y que las mutations son acciones sincronas que acompañaran a las actions
+
+      VIDEO 166 ENTRADAS FICTICIAS Y PUNTO DE RESTAURACIÓN
+
+En el archivo con el state inicial del modulo journal creamos unos valores por defecto:
+
+* En el src/modules/daybook/store/state.js *
+export default () => ({
+  isLoading: true,
+  entries: [
+    {
+      id: new Date().getTime(), // timestamp numérico
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolores voluptate minima commodi tenetur adipisci minus iste. Blanditiis nulla sunt aut recusandae, rem quis asperiores incidunt ad at eligendi possimus! Corrupti?",
+      picture: null,
+    },
+    {
+      id: new Date().getTime() + 1000, // timestamp numérico incrementado por si acaso
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Tempore nemo illo temporibus dignissimos optio. Eum culpa, saepe fugit odit deleniti eveniet perferendis velit? Cumque deleniti enim modi! Nisi, ratione nobis." ,
+      picture: null,
+    },
+    {
+      id: new Date().getTime() + 2000, // timestamp numérico incrementado por si acaso
+      date: new Date().toDateString(), // sat 23, july
+      text: "Lorem ipsum dolor sit amet, sfconsectetur adipisicing sfasfelit. Tempore nemo terribilis prehistorics dignissimos optio. Eum culpa, saepe fugit odit deleniti eveniet perferendis velit? Cumque deleniti enim modi! Nisi, ratione nobis." ,
+      picture: null,
+    },
+  ],
+});
+
+VIDEO 167 MAPGETTERS - USING GETENTRIESBYTERM
+
+Tarea: usar un getter en la aplicación,pero usando mapGetters:
+
+** Fijate que podria haber usado el acceso directo:
+  <!-- <Entry v-for="entry in $store.getters['journal/getEntriesByTerm']" :key="entry" /> -->
+* Pero no decia eso la tarea(fijate que el v-for ya está interpretando javascript,no tiene sentido usar llaves para la computed)  
+      <Entry v-for="entry in entries" :key="entry" />
+    </div>
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+import { mapGetters } from "vuex";
+export default {
+  components: {
+    Entry: defineAsyncComponent(() => import("./Entry.vue")),
+  },
+  computed: {
+    ...mapGetters({
+      entries: 'journal/getEntriesByTerm',
+    }),
+  },
+};
+
+Ojo,el mapGetters tiene muchas firmas,FH ha usado otra pasandole el modulo como primer arg y los getters:
+computed:{
+  ...mapGetters('journal',['getEntriesByTerm'])
+}
+NOTA:esto ya crea una propiedad computada con el nombre 'getEntriesByTerm'(es decir,con el nombre del getter)
+
+Lo siguiente va a ser crearnos un data-binding al input.ES super sencillo en Vue:
+En la template engancho el input a una prop
+<input v-model="term" />
+Y la creo en la data del componente(no confundir con las props)
+data(){
+  return {
+    term:""
+  }
+}
+Ya estoy capturando en this.term el input.Creamos otra computed(sobre la que al final iteraremos con el v-for):
+    entriesByTerm(){
+      return this.getEntriesByTerm(this.term)
+    }
+NOTA: para mandar argumentos a un getter vamos a usar una closure:
+
+export const getEntriesByTerm = (state) => (term = "") => { 
+  if(term.length === 0){
+    return state.entries;
+  }
+  return state.entries.filter(entry => entry.text.toLowerCase().includes(term.toLowerCase()));
+}
+
+      VIDEO 168 MANDAR LA ENTRY POR EL V-FOR
+
+Fijate que aún no hemos echo eso.Simplemente me creo un v-bind a una prop cualquiera que recibirá el Item:
+<Entry v-for="entry in entriesByTerm" :key="entry.id" :entry="entry" /> <- :entry por semantica
+
+Fijate que es una prop del componente Entry(y de tipo Object),luego 
+
+export default {
+  props:{
+    entry:{
+      type:Object
+      ...
+    }
+  }
+}
+
+Despues seguimos parseando la fecha a español.Fijate en como exporto por defecto una funcion flecha con argumentos:
+export default (args) => {}
+
+VIDEO 169 GET ENTRY BY ID GETTER
+
+Recuerda que Vue expone varios objetos,entre ellos el $route(no confundir con $router).Perfectamente puedo acceder al param del detalle de un daybook en el lifecycle:
+
+export default {
+  created(){
+    console.log( this.$route.params.id);
+  }
+};
+
+Sin embargo,es mejor práctica crear una prop required y mandarla mediante el router:
+  props: {
+    id: {
+      type: String,
+      required: true,
+    },
+  },
+Ahora en el router que redirije a ese componente creo una nueva propiedad llamada props que tendrá como valor una callback con la route como argumento:
+
+{
+  path:':id',
+  name:'entry',
+  component: import(...),
+  props:(route) => {
+    return {
+      id: route.params.id
+      }
+  } 
+}
+Recuerda que la funcion parece que funciona y es la UI.
+IMPORTANTE: recuerda romper la referencia en los getters para que no mute el state(wtf)
+export const getEntryById = (state) => (id) => {
+  const entry = state.entries.filter(e => e.id === id);
+  if(!entry) return; // fijate que return y return undefined es lo mismo
+  return {...entry}; <- ojo con devolver entry y operar sobre ella pues mutaría el state
+}
+
+En el componente tengo que tener en cuenta que el mapGetters parece que solo puedo llamarlo con la propiedad computed ya que desde methods no la veia,muy prehistoric aqui -_-
+
+<script>
+import {mapGetters} from 'vuex';
+export default {
+  props:{
+    id:{
+      type:String,
+      required:true
+    }
+  },
+  methods:{
+    loadEntry(){
+      return this.getEntryById(this.id);
+    }
+  },
+  computed:{
+    ...mapGetters('journal',['getEntryById']),
+  },
+  created(){
+    this.loadEntry()
+  }
+}
+</script>
+
+Fijate que traerla en computed ya la deja visible en todo el script.Interesting
+
+    VIDEO 170 MOSTRAR ENTRADA EN PANTALLA O REDIRECCIONAR AL USUARIO
+
+Si no existe la entrada(recuerda que el getter ya me devuelve una Entry o undefined) queremos redireccionar al usuario.Si si existe mostraremos la Entry.
+Usaremos una feature del Options API(y despues veremos todo esto con el Composition API).Esta feature es un watch(ya habiamos creado un watch antes):
+
+watch:{
+  id(value,oldValue){
+    console.log({value,oldValue})
+  }
+}
+
+Fijate que Vue es lo suficientemente inteligente como para detectar que el id no cambia(click en la misma Entry) y no disparar el watch.Aqui si que supera a React
+
+Fijate que al final estamos programando esto:
+created(){
+  this.loadEntry() <- lo carga la primera vez,si pero no las siguientes
+},
+watch:{
+  id(){
+    this.loadEntry() <- lo carga el resto de sucesivos cambios en la url
+  }
+}
+En React sería un useEffect con el id como dependency:
+useEffect( () => {
+  loadEntry()
+},[id])
+
+Seguramente en la Composition API cambiaron el watcher + created lifecycle por un único método.
+Fijate que tuvimos un problema ahora con el parseo de la entrada pues si ponemos una url que no existe entry es undefined,también lo tenemos con el textarea.Dado que no existe una entry lo mejor es renderizar el componente sólo si hay una Entry.
+Cuando necesite una etiqueta agrupadora que no modifique el HTML en Vue tengo la tag <template></template>(similar a un Fragment en React o ng-template en Angular)
+
+<template v-if="entry">
+ ...resto del código
+</template>
+Esta etiqueta no tiene representación en el HTML al compilar
+
+        VIDEO 172 CONFIGURAR REST-API EN FIREBASE
+
+Vamos a usar la Real Time Database de Firebase(que a su vez expone esta DB como una REST,de ahi el nombre del video).
+Una vez creada la DB puedo realizar una petición GET a los nodos que cree(ojo,que hay que agregar .json al final):
+https://<URL>/entries.json (nodo.json)
+Fijate que puedo hacer lo mismo con cada entry(/entries/id.json).Tendrá que ser el id identificativo único de cada entrada.Fijate tmb que siempre se nos devuelve un objeto,en vez de un arreglo.
+
+Por último fijate que básicamente la RealTime DB lo único que me deja es guardar un objeto inmenso,al que le creará endpoints automáticamente.Muy interesante Firebase,as always
+Y ya sí,fijate como en 5 minutos podemos crear una DB y los endpoints,es decir un backend.Esto si que lo hace increible,asinto
+
+      VIDEO 173 RESUMEN DE LA SECCIÓN
+
+De momento hemos hardcodeado las entradas de la app en el state.En la siguiente sección crearemos el CRUD y vendrán de Firebase.
+También hemos creado la aplicación totalmente modularizada(muy pro).Recuerda que también hicimos lo mismo con los stores,cualquier módulo nuevo tiene que pasar por el principal.
+Recuerda que hemos dejado un modulo reutilizable para crear un store inicial según módulo.
+
+NOTA: Array.filter retorna un nuevo arreglo,pero Array.find retorna el mismo objeto,y en JS los objetos son pasados por referencia.Al usar un find debo romper referencia(pues no sabia eztoh)
+
+      SECCION 12 CRUD -VUEX
+
+FH nos recuerda que las acciones pueden ser sincronas o asíncronas,y cuando son asincronas hacen el commit de las mutaciones,que son sincronas.Tendremos pues,que usar acciones para comunicarnos con la RTDB y despues commitear mutations para actualizar el store/State.
+
+También usaremos Vuex como gestor de estado(aunque se pueden usar otros,lo importante es no usar las props sino estados globales
+
+Esta sección tiene por objetivo integrar todo un CRUD utilizando Vuex, puntualmente veremos
+1- Acciones para realizar peticiones http
+2- Mutations para actualizar el State
+3- Getters para obtener información del state
+4- Inserción y subida de archivos a la web
+5- Un poco sobre las referencias locales(referencias a la template ??)
+
+      VIDEO 179 CARGAR ENTRADAS DESDE EL BACKEND
+
+Lo primero añadimos la libreria axios al proyecto y exportamos una instancia del mismo.Le pongo la baseURL de la DB expuesta como REST.
+Creamos una action que haga el get:
+const loadEntries = async() => {
+  const {data} = await journalApi.get('entries.json')
+  console.log(data)
+}
+Y para llamarlas recuerda que tengo que usar mapActions en los methods(parece que debe ir alli siempre)
+
+En el componente DayBookLayout.vue
+
+<script>
+import { mapActions } from "vuex";
+
+export default {
+  components:...,
+  methods:{
+    ...mapActions('journal',['loadEntries'])
+  },
+  created(){
+    this.loadEntries()
+  }
+}
+</script>
+
+Fijate que el lifecycle no lleva la misma sintaxis que methods.Podemos ver que nos viene un objeto y realmente es más apropiada que nos vendría un arreglo.Arreglaremos esto(con una mutation enlazada, diria)
+
+      VIDEO 180 REALIZAR EL COMMIT DE UNA MUTATION
+
+
+Dado que queremos establecer las acciones que vengan de DB,tendremos que usar una acción + una mutation.La mutation lucirá asi:
+
+export const setEntries = (state,entries) => {
+  state.entries= [...state.entries,...entries];
+  state.isLoading = false;
+}
+
+La accion lucirá asi(fijate en el async):
+export const loadInitialEntries = async ({commit}) => {
+  const {data} = await journalApi.get('/entries.json');
+  const entries = [];
+  const entriesToStore = [];
+
+  for(let id of Object.keys(data)){
+    entries.push({
+      id:id,
+      ...data[id]
+    })
+  }
+  commit('setEntries',entries)
+}
+
+VIDEO 181 LLAMAR AL ISLOADING MEDIANTE MAPSTATE
+
+IMPORTANTE: fijate que cuando quiera acceder al state o a los getters lo tengo que hacer en la propieda computed y si es a las acciones en methods:
+
+Docu de Vue: la invocación de un método siempre sucede cuando ocurre una re-renderización(parece que no ocurre inicialmente pues) mientras que las propiedades computadas solo se re-evaluan si alguna de sus dependencias reactivas tuvo cambios(en este caso pasa de true a false luego se reevalua computed)
+
+En cuanto al código:
+import {mapState} from "vuex";
+
+export default {
+  computed:{
+    ...mapState('journal',['isLoading']);
+  }
+}
+En la template:
+<Loader v-if="isLoading">
+</Loader>
+<AnotherSection v-else></AnotherSection>
+
+NOTA: recuerda que el v-else ya se engancha al v-if,no necesita otra condicion,se enlazará a Gryphus y a la negación de la condición del v-if
+
+VIDEO 182 FAB - EMITIR ACCION
+
+La tarea es emitir un evento personalizado desde el Child Component Fab.vue(su declaración) hasta el padre(Con la llamada a el componente).Es decir,emitir un evento hacia el padre.
+Recuerda que Vue expone el objeto global $emit('customEvent') para emitirlo(obviamente tendré que recibirlo en el padre con @customEvent).En resumen:
+
+En el Child(Fab.vue):
+<button @click="$emit('on:click') >
+
+En el padre(el que llame a Fab.vue):
+<Fab @on:click="saveEntry" <- ya desde aqui hacemos el método etc
+
+NOTA: realmente podria haber usado $emit desde el javascript o mandar el evento con argumentos.Esto es la forma más sencilla(sin args y desde la template)
+Fijate tmb que de momento no tiene mucho sentido esto,ya que el hijo no está mandando nada,me valdría el evento pre-built @click en el padre:
+<Fab icon="fa-save" @click="saveEntry" />
+34k son 1800
+
+    VIDEO 183 ACTUALIZAR UNA ENTRADA
+
+Para actualizar una entrada tenemos que ir por PUT a "/entries/:id" + ".json".Tendré que mandar las propiedades date y text
+NOTA: si veo las propiedades Handler,Target,IsRevoked en un console.log se refiere a que es un objeto reactivo controlado por Vue
+
+La accion lucirá asi:
+
+export const updateEntry = ({commit},entry) => {
+  const {date,picture,text} = entry;
+  const dataToSave= {date,picture,text}
+  await axios.put('/entries/'+entry.id+'.json',dataToSave)
+  commit('updateEntry',entry)
+}
+La mutation es asin:
+sxport cont updateEntry= (state,entry) => {
+  parece que sin iterar no se actualiza,que pros
+  const idx = state.entries.findIndex( ({id}) => id === entry.id)
+  state.entries[idx] = entry; 
+}
+
+    VIDEO 184 PREPARACIÓN PARA LA INSERCIÓN DE REGISTROS
+
+Vamos a usar el literal 'new' como id para saber si queremos actualizar o insertar.
+Creamos un botón en la lista de entradas para ir a este modo:
+<button @click="$router.push({name:'entry',params:{id:'new'}})
+Hacemos lo mismo desde el no-entry component.
+Desde el EntryView.vue :
+
+loadEntry(){ <- vendrá id a 'new'
+  let entry;
+   if(this.id === 'new'){
+     entry = {
+     text:"",
+     date: new Date().getTime(),
+   }else{
+    ...
+   }
+   this.entry = entry
+ }
+}
+y el async saveEntry(){
+  this.entry.id <- fijate que le hemos quitado el id a this.entry
+    ? await this.updateEntry(this.entry)
+    // : await this.createEntry(this.entry);
+}
+
+      VIDEO 185 INSERTAR UNA NUEVA ENTRADA
+
+Fijate que el endpoint es el mismo que el GET,solo que por POST.Al realizar este tipo de petición se me devuelve una propiedad llamada 'name' con el Id que le ha dado Firebase.
+
+export const createEntry = async ({ commit }, entry) => {
+  const entryToSave = {
+    date: entry.date,
+    text: entry.text,
+    picture: entry.picture || null,
+  };
+  // Firebase en los POSTS devuelve el id asi {name: 'Msdf345h},en una propiedad name
+  const { data } = await journalApi.post(`/entries.json`, entryToSave);
+  // asi que hay que mandar esa propiedad name como el id al commit de la mutation
+  commit("addEntry", { ...entry, id: data.name });
+  // también lo retornaremos para redireccionar a la nueva entrada
+  return data.name;
+};
+
+El AddEntry lucirá asi:
+export const addEntry = (state, entry) => {
+  state.entries = [entry, ...state.entries];
+};
+
+El método saveEntry hacemos que redireccione
+ async saveEntry() {
+      if (this.entry.id) {
+        await this.updateEntry(this.entry);
+      } else {
+        const id = await this.createEntry(this.entry);
+        return this.$router.push({ name: "entry", params: { id } });
+      }
+    },
+
+      VIDEO 186 BORRAR ENTRADA
+
+Para borrar en Firebase es igual que el PUT pero sin mandar nada(/item/:id + .json).Asi pues creamos la accion
+export const deleteEntry = async ({commit},id) => {
+  await journalApi.delete(`/entries/${id}.json);
+  commit("deleteEntry",id)
+}
+Fijate que el delete devuelve null si consigue borrar esa daybook entry
+La mutation hará un simple filtrado:
+export const deleteEntry= (state,id) => {
+  state.entries = state.entries.filter(entry => entry.id !== id)
+}
+
+    VIDEO 187 SWEET ALERT 2 MENSAJES DE CONFIRMACIÓN Y ESPERA
+
+Lo primero es instalar la libreria:
+>yarn add sweetalert2
+
+Despues en el componente que quiera me traigo la libreria:
+import Swal from "sweetalert2"
+
+Puedo crear una modal asi:
+  new Swal({
+    title: "Espere, por favor",
+    allowOutsideClick: false,
+ })
+ Y despues llamarla con Swal.showLoading();
+ También puedo crear la alerta asi:
+Swal.fire('Guardado','Entrada registrada con éxito','success')
+
+async saveEntry() {
+  new Swal({
+      title: "Espere, por favor",
+      allowOutsideClick: false,
+    });
+    if (this.entry.id) {
+      Swal.showLoading();
+      await this.updateEntry(this.entry);
+      Swal.fire("Guardado", "Entrada registrada con éxito", "success");
+    } else {
+      Swal.showLoading();
+      const id = await this.createEntry(this.entry);
+      Swal.fire("Guardado", "Entrada registrada con éxito", "success");
+      return this.$router.push({ name: "entry", params: { id } });
+    }
+  },
+
+Para el delete tmb le podemos preguntar al usuario antes.Fijate que está libreria me permite usar async/await o .then.catch y trabajar en promesas
+
+const result = await Swal.fire({
+  title:'Esta seguro de borrar la entrada?',
+  text:'La entrada se borrará indefinidamente',
+  showDenyButton:true,
+  confirmButtonText:'Si,estoy seguro
+})
+if(result.isConfirmed){
+  new Swal({
+    ...
+  })
+}
+
+      VIDEO 188 SELECCIONAR Y MOSTRAR UNA IMAGEN LOCAL
+
+Lo primero es crear un input de tipo file y agregarle el método onChange(fijate que si en React es <input type='file' onChange={} ) en Vue es:
+<input type='file' @change="onSelectImage" />
+Recuerda tmb que por defecto ya viaja todo el evento.Esto último es lo mismo que esto:
+<input type='file'  @change="onSelectImage($event)" />
+
+En methods lo rescato:
+onSelectImage(event){ <- recuerda que da igual que le pasara $event,el primer arg va a viajar automáticamente en Javascript
+  console.log(event.target.files[0]) <- vendrá aqui la img
+}
+
+NOTA:con la propiedad multiple puedo seleccionar varias imagenes:
+<input type='file' multiple @change="onSelectImage($event)" />
+Pero vamos a subir de una en una.
+En este punto vamos a necesitar la clase FileReader de Javascript,visible por cualquier fwk dado que es Vanilla JS para mostrar la img desde el filesystem.Fijate que esta clase es clave memorizarla:
+
+handleSelectImage($event){
+  const file = $event.target.files[0];
+  if(!file) return;
+  // guardo en la variable localImage la data:image:lkfsklfkj45k34k5l
+  const fr = new FileReader();
+  fr.readAsDataURL(file);
+  fr.onload = () => this.localImage = fr.result);
+}
+
+Fijate que guarda un data:image que puede interpretar el src de una tag img.Diria que es binario lo que guarda(el stream de bytes).Sea como sea es un procedimiento clave.
+
+Recuerda que tuve que crear la prop en la data:
+data(){
+  return {
+    localImage:null
+  }
+}
+
+Y que la img luce asi:
+<img v-if="localImage" :src="localImage" class="" <- fijate en el binding de src
+Desde luego Vue tiene buena pinta tu,puto envidias
+
+NOTA: fijate que FileReader es solo para ver la imagen.Realmente falta mandar el file.Aunque antes vamos a ocultar el <input type='file' y que lo abra el icono del upload.
+Para esto tendré que crear una referencia local a nuestro input,y que el onClick sobre el icono dispare el onClick
+
+      VIDEO 189 REFERENCIAS LOCALES EN VUE
+
+Sinceramente no puede ser más fácil,sólo hay que usar el atributo ref y darle un valor:
+<input type='file' @change="onSelectImage" ref="imageSelector" v-show="false" accept="image/png, image/jpeg" /> <- fijate que no es :ref 
+
+NOTA: Vue expone el objeto global $refs para acceder a todas las refs que defina,de igual manera que expone $router o $route o $store.Esto si que es la ostia
+
+<button @click="onSelectImageByRef" />
+onSelectImageByRef(){
+  this.$refs.imageSelector.click()
+}
+NOTA:fijate como en Vue puedo ocultar con un v-show="false" y no tener que ir al CSS y como puedo ya desde el HTML definir que tipo de files aceptar y el selector de archivos del sistema mostrará solo ese tipo de imagenes,videos,audio,etc
+
+        VIDEO 190 SUBIR IMAGENES A CLOUDINARY
+
+Ver docu: https://cloudinary.com/documentation/upload_images#uploading_with_a_direct_call_to_the_rest_api
+
+Cloudinary realmente no es sólo un storage para subir imagenes,sino que tienen toda una REST API detrás.Muy importante esto:
+
+If you wish to upload files with a direct call to the API from within your own custom code you can send an HTTPS POST request to the following Cloudinary URL:
+
+https://api.cloudinary.com/v1_1/<cloud name>/<resource_type>/upload
+
+Where:
+1- cloud name is the name of your Cloudinary product environment.
+2- resource_type is the type of file to upload. Valid values: image, raw, video and auto to automatically detect the file type.
+
+NOTA: puedo venir desde una API autorizada o no.Éste es nuestro caso,venimos desde una API unauthenticated.Por ello se me pedirá un upload_preset.
+
+IMPORTANTE: me pedirán un 'upload_preset'(aparte de un file).Fijate que ya tengo tres(teslo-shop,react-journal-app y pizzaWebsite).Los tengo en signed pero FH los tiene en unsigned(unsigned cualquier persona puede subir fotos) luego me equivoqué y los dejé cerrados
+Creo pues el upload_preset 'vue-daybook-fh'
+
+      VIDEO 191 SUBIR IMG DESDE JAVASCRIPT
+
+Esta forma de subir imagenes es de JS,ojo,da igual el fwk.
+Fijate que necesito crear un FormData con un file y un upload_preset
+
+        SECCION 13 TESTING DE VUEX(DAYBOOK-APP)
+
+Veremos testing sobre el store y sobre el routing de Vue.Si bien podriamos simular el store vamos a usar el store realmente(ya veré que es esto realmente)
+De nuevo Vue hace muy sencillo el testing sobre su store.  
+
+Es momento de realizar pruebas sobre el router y Vuex, no pretendo en esta sección de pruebas cubrir el 100% de la aplicación anterior ya que sería muy cansado y repetitivo, me quiero enfocar en lo nuevo que no hemos visto y un repaso de varias pruebas para asegurarme que están aprendiendo a probar sus componentes y funciones.
+
+Puntualmente tocaremos estas pruebas:
+
+1- Router
+2- Funciones del router y maps
+3- Flexibilidad en las rutas
+4- Carga de archivos
+5- Ambiente de pruebas, desarrollo y producción
+6- Vuex Store
+7- Vuex Modules
+  - actions
+  - mutations
+  - getters
+  - state
+
+8- Mocks de librerías de terceros
+9- Simulaciones
+10- Mocks sobre dispatch de acciones
+
+Es una sección bastante fuerte de pruebas, tómenla con calma porque puede sentirse abrumadora con el montón de contenido nuevo a probar.Asi se hará,oh, gran Dios FH
+
+      VIDEO 195 INSTALAR UNIT-TEST EN VUE 
+
+Pudiera ser que tengamos un proyecto ya creado sin configurar el testing.Podemos añadir facilmente el modulo de testing con:
+>vue add unit-jest
+Este comando creará los scripts de arranque,la carpeta 'tests' en la raiz con un testing unitario random y el archivo jest.config.js por si quiero añadir/cambiar la configuración de jest.
+
+    VIDEO 196 PRUEBAS EN EL ABOUT COMPONENT
+
+De momento simplemente hacemos el match contra el snapshot(recuerda usar shallowMount para que solo renderize un nivel)
+
+  VIDEO 197 PRIMERAS PRUEBAS CON EL ROUTER DE VUE(HOME COMPONENT)
+
+No puede ser más sencillo mockear el router de Vue.Dentro de las opciones opcionales que acepta el shallowMount puedo mockear cualquier objeto global(como lo es $router o $refs,por ejemplo).Luego creamos un mock del router y miramos que mock.push haya sido llamado:
+
+const mockRouter = {
+  push: jest.fn(); <- da igual lo que devuelva
+}
+const wrapper = shallowMount(HomeView, {
+  global:{
+    mocks:{
+      $router: mockRouter
+    }
+  }
+})
+//aplicamos el estímulo
+wrapper.find('button').trigger('click);
+expect(mockRouter.push).toHaveBeenCalledTimes(1);
+expect(mockRouter.push).toHaveBeenCalledWith({name: 'no-entry' });
+Terriblemente sencillo mocker el router
+NOTA: comprobar argumentos del render en React
+https://testing-library.com/docs/react-testing-library/setup/#custom-render
+
+Parece que el método render de RTL expone varias propiedades/métodos.Por ejemplo rerender para rerenderizar un comp:
+
+const {rerender} = render(<Component title="title");
+rerender(<Component title="another title");
+TIP: enzyme hasta React 16,despues RTL para testing
+
+act(): realmente parece la mejor opcion para re-renderizaciones.Por ejemplo:
+
+beforeEach( () => {
+  container = document.createElement('div');
+  document.body.appendChild(container)
+})
+afterEach( () => {
+  document.body.removeChild(container);
+  container=null;
+})
+// primer render
+act( () => {
+  ReactDOM.createRoot(container).render(<Counter />)
+}
+const button = container.querySelector('button');
+const label = container.querySelector('p');
+expect(label.textContext).toBe('You clicked 0 times')
+// segundo render
+act( () => {
+  button.dispatchEvent( new MouseEvent('click',{bubbles:true}));
+})
+expect(label.textContext).toBe('You clicked 1 times');
+NOTA: aqui hay mucho boilerplate.Pero queda claro que act lanza otra renderización(entiendo yo)
+
+      VIDEO 198 TAREA PRUEBAS EN EL FAB COMPONENT
+
+Comprobar que si le pasamos una clase el componente la pone en el icono:
+  test("should have the given class through props as icon class", () => {
+    const wrapper = shallowMount(Fab, {
+      props: { icon: "fa-rru-ki-to" },
+    });
+
+    const icon = wrapper.find("i");
+    expect(icon.classes().includes("fa-rru-ki-to")).toBe(true);
+  });
+
+Comprobar que el cmp emite el evento on:click:
+  test("test that on:click is emitted", () => {
+    const wrapper = shallowMount(Fab);
+
+    wrapper.find("button").trigger("click");
+    console.log(wrapper.emitted());
+
+    // no puede ser to bE asinto ya que dos arrays no son iguales,same as with two objects,tengo que bajar la equidad
+    expect(wrapper.emitted("on:click")).toEqual([[]]);
+    // fijate que emitted emite un arreglo con otro arreglo,ambos vacios,pero me vale decir que tendrá length de 1 === 1 emision.Muy prehistorics aqui)
+    expect(wrapper.emitted("on:click")).toHaveLength(1);
+  });
+  Fijate en la impresion de wrapper.emitted() que es clave.Además,toHaveLength aqui hace de toHaveBeenCalledTimes,importante
+Recuerda que puedo deshabilitar Compact Folders desde los user settings en VSCode,algo que debi haber echo hace tiempo.
+
+  VIDEO 199 DAYBOOK ROUTER
+
+Hacer una prueba sobre el objeto con las rutas puede ser interesante,asegurandos asi que nadie la cambia accidentalmente.
+
+IMPORTANTE: fijate en el uso de object.toMatchObject({}) donde el primer object simplemente tiene que contener el toMatchObject(aunque puede tener más,mínimo tiene que contener esto).
+
+expect({name:'paco',edad:34}).toMatchObject({name:'paco'})
+En cuanto al video yo voy a usar toEqual ya que toMatchObject permite quitarle todo,siempre y cuando el objeto original tenga el objeto del toMatchObject 
+:
+ test("router should have this config", () => {
+    expect(DaybookRoutes).toEqual({
+      name: "daybook",
+      component: expect.any(Function),
+      children: [
+        {
+          path: "",
+          name: "no-entry",
+          component: expect.any(Function),
+        },
+        {
+          path: ":id",
+          name: "entry",
+          component: expect.any(Function),
+          props: expect.any(Function),
+        },
+      ],
+    });
+  });
+
+  VIDEO 200 COMPROBAR QUE LAS RUTAS CARGUEN LOS COMPONENTES ESPERADOS
+
+En esta prueba vamos a testear lo que nos habiamos dejado en la primera.Usremos el expect sobre las rutas hijas.Pero primero veamos que imprime la llamada a esas funciones que cargan la ruta asincronamente:
+
+test('',async () => {
+   console.log(await DaybookRoutes.children[0].component())
+})
+* Podemos ver que el test debe ser asincrono lo primero y lo más importante,que no vemos el name del componente pues no se lo hemos dado.
+
+La solución es desde ya,darle siempre un name a cada componente:
+
+export default {
+  name:"NoEntrySelected",
+
+De esta forma ya podemos ver esa propiedad y hacer los asserts:
+{
+  default: {
+    name: 'NoEntrySelected',
+    components: { Fab: [Object] },
+    methods: { createNewEntry: [Function: createNewEntry] },
+    render: [Function: render]
+  },
+  render: [Function: render]
+}
+
+IMPORTANTE: fijate que axios estaba dando problemas y la solución es configurar jest agregando esta linea:
+ transformIgnorePatterns: ["/node_modules/(?!axios)"], 
+
+Fijate que por consola ya decian la solucion:
+To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+
+En este punto lo mejor es usar Promise.all o Promise.allSettled para no hardcodear los indices del arreglo de rutas por si cambiarán y esperar un array con los valores en cualquier posicion:
+ test('children routes should call the desired components', async () => {
+    const routesPromises = [];
+    DaybookRoutes.children.forEach( child => routesPromises.push(child.component()))
+    const routesResolved = (await Promise.allSettled(routesPromises)).map(r => r.value.default.name);
+    expect(routesResolved).toEqual(expect.arrayContaining(["EntryView","NoEntrySelected"]))
+  })
+* expect(routesResolved).toContain("EntryView") tmb va bien,comprobando los valores de uno en uno
+
+      VIDEO 201 TESTING DE LA FUNCION DE MAPEO DE RUTA
+
+Realmente sería interesante testear la propiedad props de las rutas ya que sin ella no va a funcionar bien la aplicación:
+   {
+      path: ":id",
+      name: "entry",
+      component: () =>
+        import(/* webpackChunkName: "daybook" */ "@/modules/daybook/views/EntryView.vue"),
+      props:(route) => {
+        return {
+          id: route.params.id
+        }
+      }
+    },
+
+
+NOTA: realmente este test es muy sencillo(fijate lo único que props es una función y tentgo que ejecutarla):
+const route = {
+  params:{
+    id:4
+  }
+}
+ expect(DaybookRoutes.children[1].props(route).id).toBe(4); <- fijate que tengo que hacer .id de la llamada pues la funcion retorna un object con la prop {id: id}
+
+ However,notice again that we are hardcoding the index and we shouln't be:
+
+   test("when routing to EntryView the id of the path should be trasmitted", async () => {
+    const routeMock = {
+      params:{
+        id: 'ABC-123'
+      }
+    }
+    const entryRoute = DaybookRoutes.children.find(route => route.name === 'entry');
+    expect(entryRoute.props(routeMock).id).toBe(routeMock.params.id)
+  });
+  Fijate que find buscará el primero y que debería de haber sólo una ruta con ese name,deshaciendonos de hardcodear el indice.Find es muy potente.
+
+      VIDEO 202 PRUEBAS CON CARGA DE ARCHIVOS
+
+Realmente es otra prueba que es muy sencilla,ya que solo tengo que crear un File y pasarlo a la función y esperar que regrese un url tipo string o que empiece por https(prefiero esta ya que sabemos que es una url).
+
+TIP: para crear un File puedo bajarme cualquier imagen de Internet haciendola un GET pero especificando como responseType un "arraybuffer".
+Muy pro FH como siempre:
+
+test("uploadImage should return a url when a valid File is given", async () => {
+  const { data } = await axios.get("urlAUnaImagen",{responseType:"arraybuffer})
+  const file = new File([data],"new_file.png")
+  const fileUploaded = await uploadImage(file);
+  expect(fileUploaded.startsWith('https://'))
+} )
+
+Sin embargo estamos subiendo una imagen a Cloudinary cada vez que ejecutemos esta prueba.Lo ideal sería borrarla inmediatamente despues de ejecutar el test
+NOTA: jest por defecto tiene 5 segundos para ejecutar las peticiones.Se puede configurar esto con jest.setTimeout(time) al principio de cada test o de forma general.Ejemplo:
+
+jest.setTimeout(15000) <- 15secs
+
+    VIDEO 203 BORRAR ARCHIVOS SUBIDOS EN LAS PRUEBAS
+
+
+Hay varias formas de hacer esto.Podriamos hacerlo con un axios.delete apuntando al resourceId pero vamos a usar su SDK:
+>yarn add -D cloudinary
+
+Una vez instalada la libreria hay que configurar el objeto global que exponen con mis credenciales:
+
+import cloudinary from "cloudinary";
+
+cloudinary.config({
+  cloud_name:,
+  api_key: ,
+  api_secret: ,
+})
+Tengo todo en la tab dashboard,claro que exponerlo en un archivo de la app es un error.En este punto debemos crear variables de entorno y eliminarlas del repo con el .gitignore
+
+      VIDEO 204 VUEX - MOCKING INITIAL STATE
+
+La primera prueba va a ser comprobar que el estado inicial luce de la forma que nosotros queremos.Sin embargo,ya desde esta prueba vamos a tener que crear un Store mockeado.
+Fijate que lo vamos a hacer con la misma función createStore(vuex no tiene una función adecuada para crear un store de pruebas ??)
+
+import { createStore } from "vuex"
+
+const createMockStore = (initialState) => 
+  createStore({
+    modules:{
+      journal:{
+        ...journalModule, <- el store verdadero
+        state: initialState
+      }
+    }
+  })
+
+La prueba en si es muy sencilla,aunque vamos a usar un mock,pero es simple concordancia de objetos:
+describe("Initial state should match", () => {
+  test("initialState should concord", () => {
+    const store = createVuexMockStore(journalStateMock); <- mock que luzca como un initial state
+    const { isLoading, entries } = store.state.journal;
+    expect(isLoading).toBeFalsy();
+    expect(entries).toEqual(journalStateMock.entries)
+  });
+});
+
+      VIDEO 205 TESTING MUTATION SET-ENTRIES
+
+Vamos a testear esta mutation.Realmente lo único que tenemos que hacer es llamar a esta mutation y ver/apreciar como cambia el estado(es como testear un dispatch)
+IMPORTANTE: recuerda que una mutation la tengo que hacer commit,y para ello necesito el objeto global store(que es lo que retorna la llamada al createStore,luego tengo ya visión sobre ese objeto)
+
+test("setEntries mutation should set the given entries in the store", () => {
+  const store = createVuexMockStore({isLoading:true,entries:[]})
+  store.commit("journal/setEntries",journalStateMock.entries)
+  expect(store.state.isLoading).toBeFalsy()
+  expect(store.state.entries.length).toBe(journalStateMock.entries.length)
+})
+Desde luego parece demasiado sencillo esto con Vue.Amazing
+
+      VIDEO 206 TESTING MUTATION UPDATE ENTRY
+
+Realmente es igual de sencillo.Obviamente la entryToUpdate tiene que tener un ID válido:
+
+  test("updateEntry mutation should update the entry by its id", () => {
+    const store = createVuexMockStore({ isLoading: true, entries: journalStateMock.entries });
+
+    const entryToUpdate = {
+      id: "-NMt3oLpVkNcI1uex3n3", <- debe existir
+      date: 1674921046635,
+      picture: "anotherImg.jpg",
+      text: "entryToUpdate",
+    };
+
+    store.commit("journal/updateEntry", entryToUpdate);
+    const updatedEntry = store.state.journal.entries.find((entry) => entry.id === entryToUpdate.id);
+    expect(updatedEntry).toEqual(entryToUpdate);
+    expect(journalStateMock.entries).toContainEqual(entryToUpdate);
+  });
+
+El toEqual nos vale,ya que los objetos tienen que coincidir.Fijate que tmb tengo toContain y toContainEqual(que bajará la equidad a ==).Esto es lo mismo que toBe y toEqual
+ToContainEqual parece muy parecido a ToMatchObject
+
+      VIDEO 207 ADD ENTRY AND DELETE ENTRY TESTS
+
+De nuevo tarea muy sencilla, pudiendo hacerla en la misma prueba.Añadimos una entrada cualquiera a un state con entradas vacio y buscamos que existe,despues la borramos y comprobamos que el state.entries haya quedado vacio,etc:
+
+ test("addEntry mutation should add the given entry to the state whereas deleteEntry should delete an entry by its id", () => {
+    const store = createVuexMockStore({ isLoading: true, entries: [] });
+
+    const entryToAdd = {
+      id: "-NMt3oLpVkNcI1uex4n4",
+      date: 1674921046665,
+      picture: "anotherImg.jpg",
+      text: "entryToAdd",
+    };
+
+    store.commit("journal/addEntry", entryToAdd);
+    expect(store.state.journal.entries).toContainEqual(entryToAdd);
+    store.commit("journal/deleteEntry", entryToAdd.id);
+    expect(store.state.journal.entries.length).toBe(0);
+  });
+
+  VIDEO 208 TESTING GETTERS - GET ENTRIES BY TEMR AND GET ENTRY BY ID
+
+  Fijate que tenemos getters que lo que hacen es llamar a una funcion que retornará cierta data.Estos getters son más complejos que un simple shortAccess
+  IMPORTANTE: para llamar a un getter desde el objeto store tenemos que usar computedProperties:
+  
+  store.getters['journal/getEntriesByTerm] <- esto es la funcion,ojo
+
+  Fijate que es una funcion por la naturaleza de nuestros getters,pero podria ser la data en getters más sencillos.Por ello hay que pasarle los argumentos necesarios:
+
+     const store = createVuexMockStore({ isLoading: true, entries: journalStateMock.entries });
+
+    const entryToAdd = {
+      id: "-NMt3oLpVkNcI1uex7n7",
+      date: 1674921046667,
+      picture: "anotherImg.jpg",
+      text: "curso",
+    };
+
+    store.commit("journal/addEntry", entryToAdd);
+    expect(store.getters["journal/getEntriesByTerm"]("curso").length).toBe(2);
+    expect(store.getters["journal/getEntryById"](entryToAdd.id)).toEqual(entryToAdd);
+  });
+
+  IMPORTANTE: fijate que el initialState está siendo pasado por referencia y apunta siempre al mismo mock(está siendo pasado por referencia entre tests),dando lugar a inconsistencia de datos.La solución es usar structuredClone para crear una copia profunda de su argumento:
+
+  const createVuexStore = (initialState) => {
+    return createStore({
+      modules:{
+        journal:{
+          ...journal,
+          state: structuredClone(initialState)
+        }
+      }
+    })
+  }
+  NOTA: este metodo structuredClone(object,options?) permite pasarle como segundo argumento opcional partes de ese objeto que no quiero que se clonen,ya que hará una copia profunda sin él.
+  De nuevo,testear un getter ha sido muy sencillo.Pasemos a las async actions
+
+    VIDEO 209 TESTING ACTIONS - LOAD ENTRIES
+
+Para testear una entrada hay que tener en cuenta que son asincronas,asi que habrá que hacer el await del store.dispatch(además que las acciones se disparan a diferencia de las mutations que se comittean),luego:
+
+test("loadEntries should load initial entries from Firebase", async () => {
+  const store = createVuexMockStore({isLoading:false,entries:[]})
+  await store.dispatch('journal/loadEntries')
+  expect(store.state.journal.entries.length).toBe(3) <- porque tengo 3
+})
+Sin embargo fijate que esto es más bien una prueba de integración,ya que estamos probando sobre el backend.Un test unitario no debe acceder a otros sistemas,deberiamos mockear axios
+
+    VIDEO 210 ACTIONS - UPDATE ENTRY
+
+Vamos a testear el updateEntry,obviamente mandando un id que funcione.Fijate que lo suyo es realizar el commit tmb y ver que cambia tanto firebase como el store:
+
+  test("actions: updateEntry should update an entry from Firebase if the id exists", async () => {
+    const store = createVuexMockStore({ isLoading: false, entries: journalStateMock.entries });
+
+    const entryToUpdate = {
+      id: "-NMrndf-y5yHdKmYgGVP",
+      date: 1674899769991,
+      picture:
+        "https://res.cloudinary.com/oscargm40/image/upload/v1674921036/vue-daybook/qoywrtd7fpqtzejbugux.png",
+      text: "Vue parece bastante interesante,asinto.Sigamos con el curso(updated from test environment)",
+    };
+    await store.dispatch("journal/updateEntry", entryToUpdate);
+    expect(store.state.journal.entries.find((e) => e.id === entryToUpdate.id)).toEqual(
+      entryToUpdate,
+    );
+     store.commit("journal/updateEntry", entryToUpdate);
+     expect(store.state.journal.entries.find(e => e.id === entryToUpdate.id).text).toBe(entryToUpdate.text);
+  });
+Idempotencia: propiedad para realizar una acción determinadas veces y aun así conseguir el mismo resultado que se obtendría si se realizase una vez.Un elemento que cumple esta propiedad es un elemento idempotente.Por ejemplo en matemáticas,los dos únicos números reales idempotentes son 0(0*0=0 | 0*0*0*0=0) y el 1.Podria resumirlo como: si lo hago otra vez va a dar el mismo resultado(en testing)
+
+        VIDEO 211 CREATE ENTRY Y DELETE ENTRY
+
+Lo mismo para crear una entrada o borrarla.Fijate de la importancia de mockear axios y el store con spyOn:
+jest.mock("src/api/journalAPI") <- más el import es suficiente
+test("actions: createEntry should create the given entry",async () => {
+  const store = createVuexStore({isLoading:false:entries:[]})
+  const newEntry = {date: xxxx,text:"anything"}
+  const newEntryId= 'nuevo-id';
+
+  jest.spyOn(journalAPI,"post").mockResolvedValueOnce({
+    data: {name: newEntryId}
+  })
+  jest.spyOn(store,"commit");
+      expect(spyOnJournalApiPost).toHaveBeenCalledWith("/entries.json", {
+      ...newEntry,
+      picture: null,
+    });
+    expect(spyOnStoreCommit).toHaveBeenCalledWith(
+      "journal/addEntry",
+      { ...newEntry, id: entrySaved },
+      undefined,
+    );
+    expect(newEntryId).toBe(entrySaved);
+})
+
+    VIDEO 212 PRUEBAS EN EL COMPONENTE ENTRY
+
+Tarea consistente en realizar pruebas sobre este componente.Dado que tiene una redirección sobre él,hay que mockear el router.Otra prueba debe ser analizar las propiedades computadas que recibe.
+
+describe("Pruebas en el entry.spec", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const mockRouter = {
+    push: jest.fn(),
+  };
+
+  const mockEntry = {
+    text: "texto de la entrada",
+    date: 1674899769891,
+    picture: null,
+    id: "mock-entry-id",
+  };
+
+  it("hacer click en la entrada debe redireccionar", () => {
+    const wrapper = shallowMount(EntryVue, {
+      props: {
+        entry: mockEntry,
+      },
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+      },
+    });
+
+    wrapper.find("div").trigger("click");
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      name: "entry",
+      params: { id: mockEntry.id },
+    });
+  });
+
+    VIDEO 214 PRUEBAS EN EL COMPONENTE ENTRYLIST
+
+Para realizar esta prueba vamos a tener problemas con el mapGetters,es decir,tenemos que mockear los gettes.De echo tendremos que mockear todo este slice del store(el journal store) y despues pasarlo al mock general que creamos con Vue.createStore en una nueva propiedad llamada plugins:
+
+import Vue from "vuex";
+
+const mockedPartialStore ={
+  namespaced:true:
+  getters:{
+    getEntriesByTerm: () => () => ["string"]
+  },
+  state:() => ({
+    loading:false,
+    entries: <- las entradas iniciales
+  })
+}
+const mockedGeneralStore = Vue.createStore({
+  modules:{
+    journal:{...mockedPartialStore}
+  }
+})
+Y es éste mock completo del store el que hay que pasar en plugins:
+
+it('must redirect to new entry',() => {
+  const wrapper = shallowMount(EntryList,{
+    global:{
+      mocks:{
+        $router: { push: jest.fn()}
+      },
+      plugins: [mockedGeneralStore]
+    }
+  })
+})
+Fijate que la propiedad es global.plugins y es un arreglo de plugins.
+NOTA: puedo crear shallow copies de varias formas:
+const simpleObj = { title: "sdjfk"}
+const shallowCopyOne = {...simpleObj}
+const shallowCopyTwo = Object.assign({},simpleObj)
+const shallowCopyThree = Object.create(simpleObj)
+Sin embargo,las tres formas hacen shallow copies
+
+      VIDEO 215 ENTRY LIST - SEGUNDA PARTE DE LAS PRUEBAS USANDO GETTERS
+
+Realmente no necesitamos mockear los getters o las actions,y podemos usar la forma que estabamos haciendo ya:
+
+const createVuexMockStore = (initialState) =>
+  createStore({
+    modules: {
+      journal: {
+        ...journalModule,
+        state: structuredClone(initialState),
+      },
+    },
+  });
+Fijate que con esta forma el journalModule me da acceso a todos las actions,getter o mutations reales pero el state si que le pasamos el que querramos.En el video anterior vimos como mockear todo el modulo,pero no lo necesitamos( y menos para devolver el mismo getter,claro)
+
+Ahora si ya podemos testear este componente pasandole el global.plugins(que realmente era lo único que necesitabamos añadir):
+
+  test("should show the given initial entries", () => {
+    const store = mockMainStore();
+    console.log(store.state.journal.entries)
+
+    const wrapper = shallowMount(EntryListVue, {
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+        plugins: [store],
+      },
+    });
+    // console.log(wrapper.html())
+  expect(wrapper.findAll('entry-stub').length).toBe(2)
+
+* Recuerda que con wrapper.html() veo el html y que al usar shallowMount no voy a ver las Entry de la iteracion con el v-for="entry in entriesByTerm" :key="entry.id"
+
+ IMPORTANTE: el método setValue en Vue es asincrono,esto es así porque tiene que esperarse a que haga la modificación respectiva en el Virtual DOM.
+
+      VIDEO 216 PRUEBAS EN EL CMP ENTRY-VIEW
+
+Este componente es un tanto complicado,incluso usa una libreria externa.Trar ver lo que hace el componente podemos observar que lo mejor sería usar todas las actions y getters ya existentes y solo mockear el state inicial,aunque yo mockearé todo el módulo:
+
+export const mockedJournalStore = {
+  namespaced: true,
+  state: () => ({
+    loading: false,
+    entries: journalStateMock.entries,
+  }),
+  getters: {
+    getEntriesByTerm: getEntriesByTerm,
+    getEntryById,
+  },
+  actions: {
+    updateEntry: updateEntry,
+    deleteEntry: deleteEntry,
+    createEntry: createEntry,
+  },
+};
+
+Ya solo es probar que si no haya id redireccione a 'no-entry' o que muestre la imagen correspondiente a una entrada con id existente:
+  test("debe de sacar al usuario porque el id no existe", () => {
+    shallowMount(EntryViewVue, {
+      props: {
+        id: "este id no existe",
+      },
+      global: {
+        mocks: {
+          $router: mockRouter,
+        },
+        plugins: [mockGeneralStore()],
+      },
+    });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ name: "no-entry" });
+  });
+
+      VIDEO 217 PRUEBAS CON EL BORRADO EN EL ENTRYVIEW
+
+Vamos a realizar un espia de todo el Sweet Alert.Fijate que en este punto hemos tenido problemas con el event loop y que la solución para comprobar el push(que se ha tenido que hacer es un simple setTimeout)
+
+import Swal from "sweetalert2"
+
+* fijate que es jest.mock(libreria) donde la libreria es el nombre del paquete que se instaló
+jest.mock("sweetalert2",() => ({
+  fire: jest.fn(),
+  showLoading: jest.fn(),
+  close: jest.fn(),
+}))
+
+Asi pues si quisiera mockear vuex:
+import Vue from "vuex";
+jest.mock("vuex",() => ({
+
+}))
+O react-router-dom:
+import router from "react-router-dom";
+jest.mock("react-router-dom")
+Tu fijate que no puede ser el nombre de la importación,ya que cada uno lo puede llamar de otra forma,nunca pudo ser jest.mock("Swal") ya que otro dev puede traerlo con otro nombre.Siempre el nombre de la libreria
+Entonces mockeamos la libreria:
+import XXX from "sweetalert2";
+jest.mock("sweetalert2",() => ({
+  fire: 
+}))
+
+En este punto podria haber declarado ya arriba que Swal.fire.fn().mockReturnedValueOnce(Promise.resolve({isConfirmed:true})) pero esto sería hardcodear el fire.Si tuviera que cambiar ese mock tengo que hacerlo asi:
+
+import Swal from "sweetalert2";
+
+jest.mock("sweetalert2",() => ({
+  fire: jest.fn(),
+  close:jest.fn(),
+  showLoading:jest.fn()
+}))
+
+y ya en el test que quiera piso a ese jest.fn()
+
+test('debe de borrar una entrada',async () => {
+  Swal.fire().mockReturnValueOnce(Promise.resolve({isConfirmed:true}))
+});
+
+Muy interesante esto,billy.Y recuerda que tuvimos que hacer esto:
+
+   setTimeout(() => {
+      expect(mockRouter.push).toHaveBeenCalled();
+    },10)
+
+   VIDEO 219 SIMULAR UN ESPIA PARA EL DISPATCH
+
+Una vez creado el store podemos mockear cualquiera de las acciones,mutaciones,getters a los que tenga acceso ese store.En nuestro caso realmente no queremos que dispare el delete pues va a ir a Firebase a borrar la entrada.Y es asi de sencillo:
+
+const store = createVuexStore();
+store.dispatch = jest.fn() <- cualquier dispatch va a realizar ya nada xd
+Y lo mismo para las mutations(aunque realmente en Vue nos daría igual ya que solo tendrían impacto sobre el front,pero las actions si es importante no disparar su implementación real)
+
+store.dispatch=jest.fn();
+Ya solo es esperar que se llame ese dispatch.
+  expect(store.dispatch).toHaveBeenCalledWith(
+      "journal/deleteEntry",
+      journalStateMock.entries[0].id,
+    ); 
+En este punto fijate lo ridículo que es hacer comprobaciones sobre la implementación real de un dispatch,y como en el proyecto Dani o Andrea habrán cambiado la implementación de los mismos.
+Sección genial.
+

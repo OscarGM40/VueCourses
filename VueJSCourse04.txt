@@ -1,0 +1,1173 @@
+				SECCION 14 COMPOSITION API -BASES
+
+No es que Vue fuera malo hasta la versión dos,pero cuando sacaron la Compositions API(el cual es como lo mejor de Angular y de React) se abrieron muchas puertas a la hora de reutilizar código(una Composable Function es como un hook de React).También veremos los mixins(aunque están en desuso).
+En esta API la forma de compartir esa reusabilidad es mediante un mixin.Un mixin no es más que un objeto que tiene todo lo que necesite compartir(como ciclos de vida como el mounted,etc).Despues se pondría en cada componente que querramos.Sin embargo hay muchos problemas con estos mixins,ya que aparece mucha información de la nada.
+Además desde un mismo componente puedo llamar a varios mixins,inclusive con el mismo nombre.Parece que es algo que irán puliendo.Además no se les puede mandar argumentos iniciales.
+Por todo esto los veremos sólo superficialmente.
+En esta API han cambiado muchas cosas como la data o los lifecycles(que fueron renombrados),objetos reactivos,todo esto ahora parece que va embebido en una función setup.
+NOTA: los lifecycles simplemente se les agregó el prefijo 'on'( de 'mounted' a 'onMounted')
+
+Veremos lo siguiente:
+1- Objectos reactivos
+2- Ref vs Reactive
+3- DevTools
+4- Router composable functions
+5- Lifecycle hooks
+6- keep-alive
+7- Watchers
+8- Composable functions
+9- Props
+10- Peticiones http
+11- Exposición del problema y necesidad del Composition API
+12- HTML Refs en CompositionAPI
+13- Router lifecycle hooks
+
+Esta sección tiene por objetivo que repasemos todo lo que hemos hecho hasta el momento usando el Options API, pero ahora con el Composition API, en la sección hay varias exposiciones que te ayudarán a comprender mejor el tema.
+
+			VIDEO 222 INTRODUCCION AL COMPOSITION API
+
+El composition API es una nueva forma de trabajar dentro de Vue.Viene por defecto en cualquier aplicación de Vue 3,pero en Vue 2 habría que instalarlo con:
+>yarn add @vue/composition-api
+Sin embargo,sólo se recomienda si hubiera problemas con la reutilización de código en esa app de Vue 2,aunque se recomienda buscar soluciones con lo que ofrezca Vue2.
+NOTA: el composition API es opcional,se podria trabajar como hasta ahora en Vue3 
+IMPORTANTE: esta API intenta solucionar el mezclar lógica de negocio en el componente(por ejemplo un componente que tenga relación con Productos y Usuarios va a terminar mezclando en la data,en los methods,en las computed,... ambas entidades.
+
+Los mixins son una solución que brinda Vue al problema de mezclar data(siempre han existido).Sin embargo el compositions API soluciona este mismo problema de una manera genial.Ejemplo:
+const myMixin = {
+  created(){ console.log('mixin hook called')}
+}
+Y ahora sería usarlo asi(en un componente ??:
+({mixins:[myMixin], created(){ console.log(' component hook called') } });
+Esto daría dos impresiones por consola(no entiendo esto)
+
+Los principales problemas de los mixins son:
+  - Los mixins son propensos a errores y conflictos(hay prioridad entre ellos)
+  - Las propiedades y métodos parece que aparecen de la nada,teniendo acceso a propiedades que no se sabe de donde salieron
+  - Reusabilidad limitada(dado que no se pueden pasar argumentos).Esto si que parece determinante para no usarlos 
+
+Para solucionar todo esto tenemos el compositions API.Esta API se ve claramente porque tenemos un nuevo método llamada setup() del que cuelga todo.Podría considerarse como un nuevo ciclo de vida en el componente el cual se ejecuta antes que el created o el onMounted(pero despues del beforeCreate).Se ejecuta antes de montar el DOM tmb entiendo,en el mero primer instante que se empiece a hacer algo en ese componente(pero despues de ese hook,investigar más sobre esto.
+
+setup(props){
+  data <- ahora ya ni siquiera tiene por que ser reactivo todo
+  methods
+  computed
+  watch
+  emits
+
+IMPORTANTE: fijate que yo ya he hecho todas las aplicaciones en Vue3 usando el OptionsAPi y no vi ni un warning.Fijate tmb que en la template no hay cambios
+
+<script>
+import {ref} from 'vue' <- ref permite crear variables reactivas
+
+export default {
+  components: { PokemonOptions, PokemonPicture }, <- esto no cambia
+  setup(){
+    const pokemonArr = ref([])
+    const pokemon = ref(null)
+    const showPokemon = ref(false)
+    const showAnswer = ref(false)
+    const message = ref('');
+   
+    const mixPokemonArray = async () => {
+      pokemonArr.value = await getPokemonOptions() <- servicio externo  
+      const rndInt = Math.floor(Math.random() * 4);
+      pokemon.value = pokemonArr.value[rndInt] <- fijate en el uso de ref.value para asignar o acceder al valor de esas variables reactivas
+    }
+    mixPokemonArray() < -inmed iatamente despues llamamos a la función(en React sería dentro de un efecto(cuantas veces se llamaría asi ??)
+
+   return { <- en el return debo devolver todo lo que quiero exponer al template(fijate que devuelvo métodos y propiedades) 
+     message,
+     pokemon,
+     showPokemon,
+     
+    checkAnswer(selectedId){
+      showPokemon.value = true
+      ....
+   }
+    newGame(){
+      showPokemon.value = false
+      ...
+   }
+  } <- fin del return
+ 
+IMPORTANTE: fijate que ya no se usa 'this'.This apunta al objeto global que está encima del setup(que no se qué es)
+NOTA: Fernando muestra despues como ni siquiera va a definir todo esto en el cmp,sino que va a usar un Composable(un hook de React) para llamar a todo.Desde luego tiene una pinta increible.Fijate que al usar Composables/hooks tenemos un nivel de abstracción tal que podemos reutilizar prácticamente cualquier pedazo de código
+Desde luego tiene una pinta genial esta API.
+
+		VIDEO 224 BONUS - ATAJOS
+
+Video donde nos muestra el mismo PDF que ya usamos y explica que las dos primeras paginas es la OptionsAPI y despues ya es documentación sobre la compositions API(hojas 3 y 4).Recuerda que algunos lifecycles ya no existen y que todos los que si existan se les prefijó un 'on'(onMounted en vez de mounted).
+
+		VIDEO 225 BASES COMPOSITION API - INICIO DE UN PROYECTO CON LA API COMPOSITIONS
+
+Realmente es lo mismo que hemos hecho hasta ahora para crear una app(vue create <app-name>),sólo que esta vez selecciono el router y el store.
+NOTA: recuerda navegar por el name de cada ruta(para ello hay que hacer un v-bind a la propiedad to en el router-link)
+<router-link to="/about">About</router-link> <- mala idea hardcodear la ruta
+<router-link :to="{name: 'counter'}">Counter</router-link> <- mejor usar el name y que compute a lo que sea
+
+Recuerda también que tengo que usar un <router-view>.Esto es un componente para mostrar la ruta actual(mientras no lo ponga no veré las rutas)
+** Esto necesita saber donde mostrarse **
+<nav>
+   <router-link :to="{name:'home'}">Home</router-link> |
+   <router-link :to="{name:'about'}">About</router-link> |
+   <router-link :to="{name:'counter'}">Counter</router-link>
+</nav>
+
+<router-view /> <- se mostrarán justo debajo(un router-view por cada nivel de rutas de la app)
+
+      VIDEO 226 COUNTER USANDO COMPOSITION API
+
+Fijate que hay algunas props que aún deben de quedar afuera del nuevo método setup(el name,las props o lo que emita con emits):
+
+export default {
+  name:'Counter',
+  props: {},
+  emits:[],
+
+  setup(){ }
+}
+
+Practicamente todo lo demás va dentro del setup.Simplemente creemos un contador y sus dos métodos para incrementar/decrementar:
+<template>
+  <h1>Counter View</h1>
+  <h2>{{ counter }}</h2>
+  <button @click="increment">+1</button>
+  <button @click="decrement">-1</button>
+</template>
+<script>
+import { ref } from "vue";
+
+export default {
+  name: "counter",
+  props: {},
+  emits: [],
+
+  setup() {
+    const counter = ref(5);
+
+    const increment = () => {
+      return counter.value++;
+    };
+
+    const decrement = () => {
+      return counter.value--;
+    };
+    return {
+      counter,
+      increment,
+      decrement,
+    };
+  },
+};
+
+NOTA: no es muy común definir las funciones en el componente,fijate que es totalmente innecesario(ya que las puedo definir donde quiera e inyectarlas/importarlas,etc).Además que complica la visión del componente:
+  setup() {
+    const counter = ref(5);
+    return {
+      counter,
+      increment: () => counter.value++, <- se refiere a esto
+      decrement: () => counter.value--,
+    };
+  },
+};
+Fijate que esto lo puedo hacer en React,tmb,en cualquier return,es sólo Javascript
+Desde este punto vamos a tratar de crear el código lo más reutilizable posible.
+
+      VIDEO 227 PRIMER COMPOSABLE - USE COUNTER
+
+Fijate que es un simple hook,lo importante es definir la propiedad con ref para que sea reactiva:
+
+import {ref} from "vue";
+
+export const useCounter = (initialValue) => {
+  const counter = ref(initialValue)
+  return {
+    counter,
+    increment: () => counter.value++,
+    decrement: () => counter.value--,
+  }
+}
+
+Y ahora solo es llamar al hook en el cmp(y ejecutarlo,ojo,para que retorne lo que tenga definido,luego llamo a la ejecución del hook):
+
+setup(){
+  const { counter,increment, decrement } = useCounter(5);
+  return { counter, increment, decrement};
+}
+Fijate como hemos dejado todo en dos líneas,y totalmente reusable esta lógica.
+
+NOTA: esto no se puede hacer con un mixin ya que lleva un argumento(muy prehistoric estos mixins)
+TIP: el nombre técnico es Composable Functions
+
+      VIDEO 229 REF VS REACTIVE
+
+Una de las cosas más importantes que debemos saber es la diferencia entre crear una prop reactiva con ref o con reactive.Si vemos el siguiente código parece que son iguales:
+
+<template>
+  <div class="home">
+    <h1>Reactive vs Ref</h1>
+    <h3>{{ ironman }}</h3>
+    <h3>{{ hulk }}</h3>
+  </div>
+</template>
+
+<script>
+import { reactive, ref } from "vue";
+
+export default {
+  name: "home",
+  props: {},
+  emits: [],
+
+  setup() {
+    const ironman = ref({ name: "Tony", age: 50 });
+    const hulk = reactive({ name: "Bruce", age: 45 });
+
+    return {
+      ironman,
+      hulk
+    }
+  },
+};
+</script>
+
+De echo,si ahora creamos dos funciones que muten ese objeto reactivo de esta forma y las llamamos:
+  setup() {
+    const ironman = ref({ name: "Tony", age: 50 });
+    const hulk = reactive({ name: "Bruce", age: 45 });
+
+    return {
+      ironman,
+      hulk,
+      changeIronman: () => {
+        ironman.value.name = "Tony Stark";
+        ironman.value.age = 55;
+      },
+      changeHulk: () => {
+        (hulk.name = "Bruce Banner"), (hulk.age = 44);
+      },
+    };
+  },
+
+  <button @click="changeIronman">Change Ironman</button>
+  <button @click="changeHulk">Change Hulk</button>
+
+Incluso cambian los dos.Entonces,para que utilizar ref si me obliga a usar .value todo el rato?.
+La principal diferencia es que reactive solo funciona con objetos.Si tuviera un primitivo o un arreglo no habria cambiado.Desde luego esto es determinante,si
+
+NOTA: esto es asi porque reactive funciona como una constante y no permite su reasignacion.
+
+    const ironmanIsAlive = reactive(false);
+    const hulkIsAlive = ref(true);
+
+    const changeStatus = () => {
+      ironmanIsAlive = !ironmanIsAlive;
+      hulkIsAlive.value = !hulkIsAlive.value;
+    };
+
+      VIDEO 230 LIFECYCLE HOOKS EN LA COMPOSITION API
+
+Desde la docu podemos ver que beforeCreate y create ya no tienen su contrapartida en el Composition API(en singular) y  que todos los demás son iguales pero con 'on' delante:
+
+beforeMount => onBeforeMount
+mounted => onMounted
+beforeUpdate => onBeforeUpdate
+updated => onUpdated
+beforeUnmount => onBeforeUnmount
+unmounted => onUnmounted
+errorCaptured => onErrorCaptured
+renderTracked => onRenderTracked
+renderTriggered => onRenderTriggered
+activated => onActivated
+deactivated => onDeactivated
+beforeCreate => nada
+create => nada
+
+IMPORTANTE: no mezclar el naming de los ciclos de vida
+
+Bien,si ahora hacemos una impresión por consola de todos los lifecycles(incluido el setup) veremos esto la primera vez:
+
+setup se llamó
+onBeforeMount se llamó
+onRenderTracked se llamó
+onMounted se llamó
+*Fijate que el setup se llama incluso antes del onBeforeMount,que el primer render termina con el onMounted y que tmb se llama a un onRenderTracked(la primera vez)
+
+Si hacemos un cambio cualquiera veremos esto:
+onRenderTriggered se llamó
+onBeforeUpdate se llamó
+onUpdated se llamó
+
+* Obviamente lo mismo para cada cambio,y fijate como en Vue tmb se llama a un onRenderTriggered en cada cambio(no confundir con el onRenderTracked)
+
+Y si cambiamos de Page(destruyendo el componente) veremos:
+onBeforeUnmount se llamó
+onUnmounted se llamó
+
+Para poder explicar el activated y el deactivated vamos a necesitar añadir
+en el router la propiedad keep-alive y comprender que Vue mantiene el estado global de nuestras páginas a pesar de entremos,salgamos y volvamos a entrar de ellas.Interesante
+
+      VIDEO 231 ROUTER KEEP-ALIVE PROPERTY
+
+Docu: https://router.vuejs.org/guide/migration/#scrollbehavior-changes
+
+Esta caracteristica del <router-view /> ayuda muchisimo a que la aplicación se sienta aún más rápida,especialmente cuando hay muchos componentes que han sido construidos y que realicen muchas peticiones http,ya que podemos mantener el estado de los mismos al navegar entre pantallas
+
+Fijate que cada una de nuestras páginas tiene un estado(por ejemplo el counter lo podemos incrementar y se resetea al counter inicial al cambiar entre páginas,pero porque tenemos keep-alive a false por defecto).Lo mismo para las otras páginas.
+
+Si bien en otras tecnologías esto es inpensable sin usar el localStorage o gestores de estado globales en Vue,y mediante el router de Vue lo podemos hacer de forma sencilla en el <router-view />
+
+Para implementar esta feature podemos lo primero es cambiar la etiqueta self-closed:
+
+<router-view v-slot="{Component}">
+  <keep-alive>
+    <component :is="Component" />
+  </keep-alive>
+</router-view>
+
+NOTA: ese 'component' es el componente que va a estar retornando basándose en la ruta actual y para extraerlo necesitamos traerlo y desestructurarlo de los slots que está ofreciendo/exponiendo el router-view:
+<router-view v-slot="{Component}"> ...
+
+Bien,si ahora vamos a la aplicación veremos que ahora los cambios persisten entre rutas.Sin embargo si refrescamos el navegador perderemos los cambios ya que, lógicamente, esos cambios no están almacenados en disco sino en la memoria de ese proceso.
+
+TIP: en las devtools de Vue puedo ver como <KeepAlive></KeepAlive> engloba a los componentes inactivos(manteniendo su estado,dandoles persistencia) y los recuperamos de alli al llamarlos:
+
+<KeepAlive>
+  <About /> <- inactive
+  <Counter />  <- inactive
+</KeepAlive>
+<Home /> <- active
+En este ejemplo estaría en la HOme(en la active) y tengo inactivas las otras tres(esto lo sabrá segun las rutas de ese router-view).Cuando haga cambios en el Home y me cambie meterá el Home alli y sacará al que vaya de alli,con los datos persisitidos.Obviamente esto es la memoria del proceso
+
+IMPORTANTE: ahora además ya no se llamará al OnUnmounted sino que se llama al onActivated/onDeactivated ya que el <KeepAlive> previene que se destruya.Obviamente debe ser asi ya que si no se perderían los datos.
+Esto es importante ya que si estoy cancelando subscripciones o eventos debo moverlos del onUnmounted al onDeactivated.
+Lo mismo con el onMounted y onActivated,ya solo se montará una vez y el resto son activaciones.
+
+HINT: también es muy común sacar el route del slot y usar un binding a la prop key:
+ <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+</router-view>
+
+      VIDEO 232 PETICIONES HTTP
+
+
+Creamos un nuevo componente en el que haremos una pequeña petición GET:
+
+ setup() {
+    const users = ref([]);
+    const isLoading = ref(true);
+    const currentPage = ref(1);
+    const errorMsg = ref("");
+
+    const getUsers = async (page = 1) => {
+      if (page <= 0) page = 1;
+      isLoading.value = true;
+
+      const { data } = await axios.get(`https://reqres.in/api/users`, {
+        params: { page: page },
+      });
+
+      if (data.data.length > 0) {
+        // viene de la api en data { data: []}
+        users.value = data.data;
+        currentPage.value = page;
+      } else if (data.data.length === 0) {
+        users.value = [];
+        currentPage.value = page;
+        errorMsg.value = "No hay más usuarios";
+      }
+      isLoading.value = false;
+    };
+
+    // más adelante veremos efectos
+    getUsers();
+
+    return {
+      isLoading,
+      users,
+      errorMsg,
+      currentPage,
+      getUsers,
+    };
+
+NOTA: al exportar objetos o propiedades reactivas con ref no necesito poner en la template el .value ya que Vue ya lo sabe y lo leerá del .value sin decirselo.Ya sabe que tiene que hacer en la template:
+
+ <span>Pagina: {{ currentPage }}</span>
+
+      VIDEO 234 TAREA CREAR NUEVO COMPOSABLE
+
+La tarea es crear un hook que me retorne todo lo que necesito para pintar ese componente anterior.Fácil.De nuevo fijate como mata dos pájaros de un tiro usar hooks,disparando la reusabilidad,mantenibilidad,legibilidad y limpieza en el script y la template.
+
+IMPORTANTE: fijate como nada me impide realizar peticiones en el hook,o definir una función y llamarla en el hook,es realmente potente esto y nunca lo habia visto asi:
+
+
+export const useUsers = () => {
+
+  const users = ref([]);
+  const isLoading = ref(true);
+  const currentPage = ref(1);
+  const errorMsg = ref("");
+
+  const getUsers = async (page = 1) => {
+    if (page <= 0) page = 1;
+    isLoading.value = true;
+
+    const { data } = await axios.get(`https://reqres.in/api/users`, {
+      params: { page: page },
+    });
+
+    if (data.data.length > 0) {
+      // viene de la api en data { data: []}
+      users.value = data.data;
+      currentPage.value = page;
+      errorMsg.value = "";
+    } else if (currentPage.value > 0) {
+      users.value = [];
+      currentPage.value = page;
+      errorMsg.value = "No hay más usuarios";
+    }
+    isLoading.value = false;
+  };
+  
+  getUsers(); <- llamo al getUsers para establecer los users
+
+  return {
+    users,
+    isLoading,
+    currentPage,
+    errorMsg,
+    nextPage: () => getUsers(currentPage.value + 1),
+    prevPage: () => getUsers(currentPage.value - 1),
+  };
+};
+
+TIP: si bien todo est se puede resumir asi:
+TODO ESTO ES IGUAL QUE
+  const {
+      users,
+      isLoading,
+      currentPage,
+      errorMsg,
+      prevPage,
+      nextPage,
+    } = useUsers();
+
+    return {
+      users,
+      isLoading,
+      currentPage,
+      errorMsg,
+      prevPage,
+      nextPage,
+    };
+ESTO:
+return { ...useUsers();}
+
+Pero no se sabe muy bien de donde saldria todo en la template y no se recomienda usarlo.Psé
+
+ NOTA: desde Vue 3.2 se puede usar la etiqueta <script setup></script> en Single File Components(que es lo que estamos usando hasta ahora).Más adelante veremos como separar la template y el css entiendo y en esos casos si que hay que usar el setup como método.
+ Además usar setup como un atributo de la etiqueta script conlleva ciertos cambios
+
+      VIDEO 235 USO DEL ROUTER DENTRO DEL SETUP
+
+Dado que ahora no podemos acceder a 'this' en el nuevo método setup no podemos acceder directamente a this.$router o this.$route.En vez de eso la v4 del router al usarse con la Composition API expone los hooks useRouter y useRoute:
+
+import {useRouter,useRoute} from 'vue-router'
+
+export default {
+  setup(){
+    const router = useRouter();
+    const route = useRoute();
+
+     function pushWithQuery(query){
+      router.push({
+        name: 'search',
+        query:{
+          ...route.query,
+          ...query
+        }
+      })
+     }
+  }
+}
+Entiendo que esta función permite agregar queryparams al push
+Por otro lado,el objeto route es reactivo,con lo que se puede observar por cualquiera de sus propiedades(se debe evitar observar el objeto entero).Ejemplo:
+
+import { useRoute } from 'vue-router';
+import { ref, watch } from 'vue';
+
+export default {
+  setup(){
+    const route = useRoute();
+    const userData = ref();
+
+    watch(() => route.params.id, async (newId) => userData.value = await fetchUser(newId) )
+  }
+}
+
+NOTA: si hago un console.log(this) desde cualquier setup ese this va a intentar apuntar a un contexto 1 nivel superior pero no hay nada alli(diria que intenta subir de window).Por todo esto this es undefined en el setup.
+IMPORTANTE: si bien no puedo usar this.$router en el script si que puedo usar $router.push en la template,aunque la template no es para meter lógica,valdría para algo muy sencillo como solución
+
+NOTA: recuerda que en Vue debo usar modificadores de eventos para, por ejemplo, prevenir el refresh del submit de un form:
+
+<form @submit.prevent="onSubmit($event)">
+  <input v-model="pokemonId" type="number" />
+</form>
+
+Con todo esto montamos un simple push de una ruta por id:
+
+setup(){
+  const pokemonId = ref(1);
+  cons router = useRouter();  
+
+  return {
+    pokemonId,
+    onSubmit: () => {
+      router.push({
+        name:'pokemon-id',
+        params:{id: pokemonId.value}
+      })
+    }
+  }
+}
+NOTA:poner el path asi lo hace opcional:
+{
+  path:"/pokemon/:id?",
+  name:"pokemon-id"
+}
+
+    VIDEO 236 LEER PARAMETROS Y SEGMENTOS DE LA URL
+
+De igual forma que hemos tenido que usar useRouter para hacer el push vamos a tener que usar useRoute para recibir los params.
+Si bien puede parecer que esto valdría no es así,ya que el setup no se vuelve a disparar al usar el keep-alive(pues no se desmonta el componente)
+
+import {useRoute} from 'vue-router';
+setup(){
+  const route = useRoute();
+  console.log(route.params.id)
+}
+
+Esto además es bueno que suceda,ya que lo que hay que hacer es usar un watch(que tmb hay que importar de vue):
+
+import { ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+
+IMPORTANTE: el autofocus no está funcionando bien por lo mismo.El componente es montado sólo una vez,y despues es simplemente activado y desactivado.Obviamente lo ha hecho adrede FH para que veamos esto.
+Una solución puede ser llamar mediante DOM manipulation al input.select() o a input.focus mediante una ref y el lifecycle onActivated(ya que el setup se ejecuta incluso antes de montar el cmp y no tiene el DOM listo,fijate la importancia de esto):
+
+<input v-model="pokemonId" type="number" ref="txtSearchId" /> <- fijate que es ref y no :ref como podria parecer.Fijate tmb lo fácil que es crear una referencia a un elemento de la template.Y que es totalmente extrapolable a React(comprobar esto hoy).
+
+import { ref, onActivated } from 'vue';
+
+setup(){
+  const txtSearchId = ref();
+  onActivated( () => {
+    txtSearchId.value.select() <- esto lo puedo hacer porque sé que tengo un input en la referencia.También podría usar .focus() pero ése solo coge el foco y select permite además seleccionar el contenido del input
+  })
+  
+}
+
+      VIDEO 237 COMPOSABLE USE-POKEMON
+
+Clase muy interesante,igual que la anterior con la referencia al input para cascarle el .select().Recordemos que desde una ruta estamos capturando el id y haciendo el push:
+
+<form @submit.prevent="onSubmit">
+  <input v-model="pokemonId" ref="txtSearchInput" />
+</form>
+
+const pokemonId = ref(1);
+const txtSearchInput = ref();
+onActivated( () => txtSearchInput.value.select())
+
+return {
+  pokemonId,
+  txtSearchInput,
+  onSubmit: () => {
+    router.push({name:'pokemon-id',params:{id:pokemonId.value} })
+  }
+}
+En el componente al que vamos llamaremos a este hook:
+
+const usePokemon = (pokemonId = "1") => {
+  const pokemon = ref();
+  const isLoading = ref(false);
+  const errorMessage= ref("")
+
+  const searchPokemon = async(id) => {
+    if(!id) return;
+    isLoading.value=true;
+    errorMessage.value="";
+    pokemon.value=null;
+    try{
+      const {data} = await axios.get(`https://url/${id}`)
+      pokemon.value=data;
+     errorMessage.value=""; 
+    }catch(error){
+     errorMessage.value="Algo falló en la petición"; 
+    }
+    isLoading.value=false
+  }
+  searchPokemon(pokemonId);
+  return {
+    pokemon,isLoading,errorMessage,searchPokemon
+  }
+}
+
+Ahora lo recibimos en la template y la pintamos asi:
+<h3 v-if="!pokemon && !errorMessage">Cargando...</h3>
+<h3 v-else-if="errorMessage">{{ errorMessage}}</h3>
+<template v-else>
+  <h3>{{ pokemon.name }}</h3> <- fijate que no tengo que usar pokemon.value.name
+  <img :src="pokemon.sprites.front_default" :alt="pokemon.name" />
+</template>
+Sin embargo,aún faltaría que cambie todo al cambiar el id,pues la lógica del hook sólo se va a disparar la primera vez.
+
+    VIDEO 238 WATCH - OBSERVAR CAMBIOS EN OBJETOS REACTIVOS
+
+Hay varias maneras de estar pendiente de los cambios en objetos reactivos,eso incluye el mismo route(interesante,pues esto es agnóstico al fwk seguro).
+Dentro de estas dos formas hay dos muy claras,usar un watch o un watchEffect.Éste último es como mágico ya que no hay ninguna referencia directa.Ejemplo:
+
+const count = ref(0);
+watchEffect( () => console.log(count.value))<- este efecto se redisparará cuando cambie el count(es su dependencia)
+
+NOTA: puede que no siempre queramos que se dispare este efecto,y el watchEffect lo va a hacer.Hay otra versión de crear un watcher y es con watch.
+
+En cuanto al método watch lleva dos argumentos.El primero es :
+una función getter que devuelva el valor
+una ref
+un objeto reactivo
+o un arreglo de varios de ellos
+
+El segundo argumento es una función que se ejecutará cuando detecte ese cambio.Con todo esto podriamos crear un watch sobre el route.params.id(usando en el primer arg la opcion del getter):
+
+watch( () => route.params.id, () => searchPokemon(route.params.id)) <- precioso
+
+NOTA: en la segunda callback tengo como argumentos prevValue y actualValue,pero no los necesitamos:
+watch(
+  () => route.params.id,
+  (prev,next)  => searchPokemon(route.params.id)
+)
+
+    VIDEO 239 ON BEFORE ROUTE LEAVE - BLOQUEAR LA SALIDA DE UNA RUTA
+
+El Router de Vue viene con una feature genial(en realidad es un ciclo de vida,esta vez del router, llamado onBeforeRouteLeave),ya que permite mantener al usuario en la página y realizar una última comprobación(por ejemplo preguntar en formularios si realmente desea salirse)
+
+NOTA: Vue tmb expone el lifecycle onBeforeRouteUpdate que se dispara antes de un cambio en la ruta.
+OJO: el lifecycle necesita un return false para que se quede en la ruta:
+
+onBeforeRouteLeave = () => {
+  const answer = window.confirm('Estas seguro que deseas salir?');
+  if(!answer) return false; <- debo retornar un false o cambia de ruta
+}
+Inclusive se puede usar un return implicito para sacar el true o false:
+
+onBeforeRouteLeave( () => window.confirm('dfsfsf' )) <- pues window.confirm ya va a devolver ese true o false que necesitamos.
+
+      SECCIÓN 15 VUEX CON EL COMPOSITION API
+
+Veremos como integrar Vuex con la nueva API(usremos un composable function para acceder al store que queda genial y es super simple).También veremos los slots,que son una manera de mandar bloques(slots) de información a un componente hijo(luego el slot va en el padre).Hay varios tipos de slots(con nombre,con scope,slots desde el hijo al padre,dinámicos...)Veremos casi todo sobre ellos.    
+
+La construcción de nuestro Store en Vuex no cambia nada si usamos el Optios o el Composition API, el problema radica en el acceso al store dentro del Setup y los composable functions, que lógicamente están dentro del setup.
+
+Puntualmente veremos:
+
+1- Llamar getters mediante objetos computados
+2- Usar el store dentro del Setup
+3- Uso del store dentro de un composable function
+4- Realizar commits de mutaciones
+5- Trabajar con Slots
+  a. Named slots
+  b. Scoped slots
+  c. Default slot
+6- Creación de modal sin paquetes de terceros
+
+Hay dos ejercicios sobre los scoped slots, el primero podría parecer inútil debido a que es puramente ilustrativo, el segundo ejercicio tiene por objetivo ver un uso real del mismo.
+
+    VIDEO 244 CONFIGURAR EL STATE/STORE INICIAL
+
+Declaramos un state inicial cualquiera de momento en el store/index.js.Fijate que no vamos a modularizar el store aún:
+export default createStore({
+  state: {
+    todos: [
+      { id: "1", text: "Recolectar las piedras del infinito", completed: false },
+      { id: "2", text: "Piedra del alma", completed: true },
+      { id: "3", text: "Piedra de poder", completed: true },
+      { id: "4", text: "Piedra de realidad", completed: false },
+      { id: "5", text: "Conseguir nuevos secuaces competentes", completed: false },
+    ],
+  },
+  getters: {},
+  mutations: {},
+  actions: {},
+  modules: {},
+});
+TIP. fijate que realmente no hubo ningun cambio aún al cambiar de API.
+
+Recuerda que podemos acceder de forma rápida mediante el objeto global $store
+ <h4>Tareas: {{ $store.state.todos.length }}</h4>
+Sin embargo no es recomendable este approach y usaremos getters.
+
+        VIDEO 245 VUEX GETTERS - COMPOSITION API
+
+NOTA: para acceder al store dentro del setup la Composition API expone el hook useStore:
+
+import { useStore } from 'vuex'
+
+export default {
+  setup () {
+    const store = useStore()
+  }
+}
+
+Ya con este primer paso puedo acceder a los getters que haya definido y meter el valor en una computed property(que viene de vue ésta).Ejemplo:
+
+import { computed } from 'vue';
+import { useStore } from 'vuex';
+
+export default {
+  setup(){
+    const store = useStore();
+    const products = computed(() => store.getters['cart/cartProducts'] );
+    return {
+      products <- mando el getter a la template
+    }
+  }
+}
+TIP: fijate que si imprimo todo el store veré que expone la funciones para el commit o el dispatch,aparte de los getters,las mutations,las actions,observables,modules,etc.Obviamente es un objeto con todo.Creamos pues un getter en el store y lo metemos en una computed en el componente
+
+NOTA: los getters tienen gran accesibilidad por su propia naturaleza.Pueden acceder al store delmodulo en el que estén,a otros getters y al rootStore:
+
+  getters: {
+    // name(stateOfThisModule,otherGetters,mainState)
+    // en este caso el state del modulo es el general,luego el arg 1 y 3 son lo mismo
+    pendingTodos(state,getters,rootState){ <- gran accesibilidad
+      return state.todos.filter( todo => !todo.completed)
+    }
+  },
+
+  Obviamente tiene todo el sentido del mundo que tengan una gran accesibilidad al resto del store.
+
+        VIDEO 246 TAREA - CREAR Y USAR GETTERS
+
+Crear dos getters más.Fijate que puedo usar una arrow function perfectamente:
+  allTodos(state,getters,rootState){
+      return state.todos
+    },
+  completedTodos(state,getters,rootState){
+      return state.todos.filter( todo => todo.completed)
+  }
+O con arrow functions:
+  allTodos: (state,getters,rootState) => state.todos;
+
+      VIDEO 247 DISEÑO DE LA LISTA DE TAREAS - MAQUETACIÓN
+
+  Fijate que para usar una clase condicionalmente es {'clase':condicion}.Ejemplo:
+
+   <li :class="{'completed':todo.completed}" v-for="todo in all" :key="todo.id">{{ todo.text }}</li>
+   Si quisiera usar un ternario tengo que usar un arreglo en vez de un objeto además.
+
+        VIDEO 248 GETTERS COMO UNA FUNCION
+
+Vamos a crear un getter que nos permita filtrar en base a la propiedad que recibamos como argumento( que será all | pending | completed).Fijate que hay que usar una closure para poder recibir ese argumento,ya que está ya definido los args de la primera función:
+
+// IMPORTANTE: para poder usar un getter como una funcion tengo que usar una closure,haciendo que la primera funcion que accedia al state retorne otra función
+getTodosByTab: (_,getters) => (tab) => {
+  switch(tab){
+    case 'all': return getters['allTodos'] 
+    // ojo que son referencias a las funciones,y no hay que llamarlas para nada
+    case 'completed': return getters.completedTodos
+    case 'pendingTodos': return getters.pendingTodos
+  }
+}
+
+Y para pasarle ese argumento simplemente ejecutamos la función:
+* en el return del setup *
+return{
+  getTodosByTab: computed(() => store.getters["getTodosByTab"](currentTab.value)),
+}
+Desde luego Vue tiene cosas muy profesionales e interesantes.No entiendo porqué no se usa más.
+
+      VIDEO 249 COMITTING MUTATIONS IN COMPOSITION API
+
+  Creamos una mutation que cambie el completed en base al id asi que habrá que barrer antes:
+    toggleTodo(state, id) {
+      const todoIdx = state.todos.findIndex( todo => todo.id === id);
+      state.todos[todoIdx].completed = !state.todos[todoIdx].completed
+    },
+
+En el html llamamos en el dblclick a una función:
+    <li
+        :class="{ completed: todo.completed }"
+        v-for="todo in getTodosByTab"
+        :key="todo.id"
+        @dblclick="() => toggleTodo(todo.id)"
+      >
+
+Y esa función simplemente llamará al commit:
+    const toggleTodo = (id) => {
+      store.commit("toggleTodo", id);
+    };
+NOTA: fijate que podia llamar a la fn asi tmb:
+ @dblclick="toggleTodo(todo.id)"
+
+      VIDEO 250 COMPOSABLE USE TODO
+
+Realmente este composable es muy sencillo,ya que solo bastaba con cortar y pegar:
+import { useStore } from "vuex";
+import { computed, ref } from "vue";
+
+const useTodos = () => {
+  const store = useStore();
+  const currentTab = ref("all");
+
+  return {
+    pending: computed(() => store.getters["pendingTodos"]),
+    currentTab,
+    getTodosByTab: computed(() => store.getters["getTodosByTab"](currentTab.value)),
+    toggleTodo: (id) => store.commit("toggleTodo", id),
+  };
+};
+
+export default useTodos;
+
+IMPORTANTE: un composable se supone que tiene que intentar abstraer tanta lógica como pueda.No tiene sentido no meter la llamada al hook useStore en el composable,debo ser preciso y concienzudo con esto y sacar todo lo que pueda al composable,como en este caso.Fijate que además en el archivo ese tengo visión sobre todo realmente,nada me impide usar una funcion de vuex o de vue,etc.Genial.Ahora el componente queda limpísimo y el composable totalmente reutilizable
+
+      VIDEO 251 INTRODUCCIÓN A LOS SLOTS
+
+Para entender los slots tenemos que entender que es el slot-content y el slot-outlet.Son parecidos a los children,el slot-outlet es la etiqueta donde irá el slot-content(que puede ser cualquier cosa,tanto HTML como funcionalidad,igual que los children)
+
+Por ejemplo:
+<button class="fancy-btn">
+  <slot></slot> <- aqui va el contenido
+</button>
+
+Ese contenido podría ser algo asi(fijate que esto parece que es solo para HTML):
+<FancyButton>
+  Click me!
+</FancyButton>
+
+Al final sería como haber puesto esto
+<button class="fancy-btn">
+  Click me!
+</button>
+
+Si nos fijamos bien en la naturaleza de Vue,ya hemos estado usando los slots en todos lados,por ejemplo en el router-view(no confundir con v-slot):
+
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+Siguiendo con todo esto creamos la ruta /slots y el componente Modal
+
+      VIDEO 252 SLOTS Y NAMED SLOTS
+
+ Estos dos conceptos son fundamentales.Si nos fijamos en el contenido del componente Modal,podemos ver que no tiene sentido hardcodearle el contenido,debería ser algo dinámico que se pudiera pasar desde el padre(nos referimos a todo su HTML).
+
+ Esto no tiene sentido,no es una modal reutilizable:
+ <template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <h1>Hola mundo</h1>
+    </div>
+  </div>
+</template>
+
+NOTA: recuerda que desde el padre puedo usar varias nomenclaturas para llamar a un componente de Vue:
+
+* Todas estas harian lo mismo
+<Modal></Modal> o <modal></modal> o <modal /> o <Modal />
+
+Bien,digamos que desde esta llamada queremos pasarle el siguiente Html al componente hijo:
+<Modal>
+  <h2>titulo de la modal</h2>
+  <p>contenido de la modal</p>
+  <button>Cerrar</button>
+</Modal>
+¿Como hacemos esto?¿Como hacemos que el componente hijo acepte contenido html dinámico?
+Pues bien,simplemente hay que definir la zona en el hijo mediante la etiqueta reservada <slot />(ojo que es en minúsculas):
+
+* En el componente hijo:
+<template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <slot></slot>
+    </div>
+  </div>
+</template>
+TIP: esto permite no solo mandar estructura HTML sino también funcionalidades.Es la contrapartida a los children de React pues
+
+NOTA: se le puede dar un contenido fallback a un <slot></slot> simplemente metiendo algo en su interior:
+
+<slot>Esto aparecerá si no hay contenido</slot> <- interesante que este automatizado ya
+
+IMPORTANTE: las etiquetas slot no aceptan una clase de CSS,para poder estilizar su contenido hay que crear un div wrapper:
+
+   <slot>
+    <div class="center">Esto aparecerá si no hay contenido</div>
+   </slot>
+
+* Algo muy importante que no hemos visto hasta ahora es que en el setup estamos recibiendo ciertos argumentos opcionales.Sin embargo esto de momento no tiene nada que ver con la solución:
+
+export default {
+  setup(properties,context) {},
+};
+
+NOTA: pudiera ser que queramos definir un orden para ese Html dinámico a pasar al hijo.Para esto tenemos los named slots.Son exactamente lo mismo,solo que llevan un nombre(mediante la propiedad name):
+
+  <slot name="header" />
+  <slot name="body" />
+  <slot name="footer" />
+
+
+  En el padre tenemos que usar el componente agrupador <template v-slot:name></template> junto al name de ese slot:
+
+En el padre RandomPage.vue al llamar a la Modal:
+
+    <Modal title="Hola mundo">
+    <template v-slot:body>
+      <p>
+        Lorem ipsum dolor, sit amet consectetur adipisicing elit. Maxime praesentium
+        molestiae rem velit corporis facilis, molestias voluptatum accusamus quibusdam
+        aliquid repudiandae cupiditate blanditiis repellendus deleniti beatae dolorum at
+        omnis obcaecati?
+      </p>
+    </template>
+
+    <template v-slot:footer>
+      <button>Cerrar</button>
+    </template>
+    <template v-slot:header>
+      <h2>titulo del modal</h2>
+    </template>
+  </Modal>
+
+  NOTA:fijate que da igual el padre,lo que importa es el receptor,el hijo y el orden definido:
+
+* En el hijo Modal.vue
+  <template>
+  <div class="modal-background fade-in">
+    <div class="modal-container">
+      <slot name="header" />
+      <hr />
+      <slot name="body" />
+      <div>Aqui viene el footer</div>
+      <slot name="footer" />
+    </div>
+  </div>
+</template>
+
+De esta forma irá siempre el header,body y footer,además que entiendo será opcional cada subslot.Fijate incluso que podemos definir Html entre slots(que obviamente será el mismo para todas las llamadas a este componente).Sin embargo falta darle funcionalidad a todo esto(y por ello poder pasarla entre padre/hijo ??)
+
+    VIDEO 253 FUNCIONALIDAD BÁSICA DE NUESTRA MODAL
+
+En este punto es importante entender que Vue va a pasar al hijo por referencia todo el objeto y por ello puedo declarar un método en el padre que va a pasar al hijo.Sabiendo esto podemos gestionar todo esto en el padre:
+
+Enel padre:
+<button @click="openModal">Abrir modal</button>
+
+<Modal v-if="isOpen">
+  <template v-slot:header>
+    <h2>Titulo de la modal</h2>
+  </template>
+  <template v-slot:body>
+    <p>random content</p>
+  /template>
+  <template v-slot:footer>
+    <button @click="closeModal">Cerrar modal</button>
+  </template>
+</Modal>
+
+
+export default{
+  components:{Modal},
+  setup(){
+    const isOpen = ref(false);
+    return {
+      isOpen,
+      openModal: () => isOpen.value= true,
+      closeModal: () => isOpen.value= false,
+    }
+  }
+}
+
+Esto es algo genial por parte de Vue,sin ninguna duda.Sin embargo, ahora queremos que al clickar en el fondo se cierre sola la modal(fijate que el componente Modal es toda la pagina):
+
+<template>
+  <div class="modal-background fade-in">
+
+  El css es:
+  .modal-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+
+  Luego ocupa todo.Es decir,queremos emitir cuando alguien haga click en ese div(recuerda el objeto global $emit).Desde luego Vue tiene muchas cosas geniales:
+
+<div class="modal-background fade-in" @click="$emit('on:close')>
+
+NOTA: en la template sigo teniendo acceso al objeto global $emit,pero no asi en el setup ahora,ya que no tengo acceso a this(en realidad apunta a otra parte simplemente).Ya veremos como emitir eventos desde el setup del hijo al padre.
+
+IMPORTANTE: es bueno especificar/registrar qué es lo que emite un componente usando la propiedad emits que será un arreglo de ellos:
+
+<script>
+export default {
+  emits:['on:close'],
+  setup(props,context){}
+}
+</script>
+Esto ayuda a otros devs a ver de forma sencilla que ese componente emite eventos y además ayuda con el IntelliSense.Esta propiedad es de Vue 3.
+
+Una vez emitido desde el hijo nuestro custom event y registrado lo escuchamos en el padre con @name="fn".Obviamente llamamos al closeModal.
+
+<Modal v-if="isOpen" @on:close="closeModal">
+  ...rest of the modal
+</Modal>
+
+TIP: para afinar aún más podemos ver que ahora clickar en cualquier parte de la modal tmb la cierra(diria que el fkn evento ha ido pasando hacia abajo).
+Esto no deberia ser asi,solo deberia poder cerrarla el boton y clickar afuera.Para solucionar esto tenemos el modificador de evento 'self':
+
+self: only trigger handler if event was dispatched from this element.
+<div class="modal-background" @click.self="$emit('on:close')> <- te cagas con Vue
+
+NOTA: fijate que lo podia haber echo desde el padre tmb sin emitir un evento desde el hijo en el propio Componente(ya que eso va a ser el primer div).
+
+<Modal v-if="isOpen @click.self="closeModal">
+
+Sin embargo diria yo que solo vale porque ese <Modal></Modal> es el div
+
+TIP: recuerda que en Vue la diferencia entre un atributo y una prop es si esta definida en la propiedad props(luego esto es un atributo):
+
+<Modal v-if="isOpen" title="Hola mundo"></Modal>
+
+Pero en cuanto defina la prop title ya será una prop:
+
+export default {
+  props:{
+    title: {
+      type:string,
+      required:true
+    }
+  }
+}
+Mientras no haga esto en el hijo es un atributo.Los atributos los veo en el context.attrs,las props en el otro argumento:
+
+export default {
+  emits:['on:close'],
+  setup(props,context) {
+    console.log({props})
+    console.log({context})
+  },
+};
+Debo tener claro la diferencia entre atributo y property,la cual es muy sencilla.
+Desde el context también tengo acceso a $emit(solo de lectura o de lectura y escritura)
+En el siguiente video veremos como pasar información desde el Slot(desde el hijo) y que el padre pueda reaccionar basandose en esa información que el hijo le pasa.
+
+         VIDEO 254 SCOPED SLOTS
+
+IMPORTANTE: esta funcionalidad la podemos ver aqui:
+
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+  El <slot /> que es el <component /> es el que informa al padre,al router-view y no al revés como parecia que explicaba FH.Esto es algo muy común en vuetify o quasar.
+
+  NOTA: para realizar esto debo mandar propiedades en el <slot></slot> en el hijo(fijate que :newTitle es porque necesitamos el v-bind,no así con hola):
+
+      <div class="modal-container">
+      <slot name="header" />
+      <slot name="body" />
+      <slot name="footer" />
+
+      <slot name="exposed" :newTitle="newTitle" hola="mundo"></slot> <- este slot manda una prop al padre,ojo
+    </div>
+
+Ojo,para recibirlas en el padre siempre vienen en un objeto llamado 'slotProps'(es decir,estará en el padre en slotProps.newTitle):
+
+  <template v-slot:exposed="slotProps">
+      <h2>{{ slotProps }}</h2>
+    </template>
+
+Si nos fijamos de nuevo en el ejemplo con el router-view vemos que estamos desestructurando el objeto slotProps:
+  <router-view v-slot="{ Component,route }">
+    <keep-alive>
+      <component :is="Component" :key="route.name"/>
+    </keep-alive>
+  </router-view>
+
+Asi pues,nada nos impide a nosotros sacar las props hola y newTitle:
+  <template v-slot:exposed="{newTitle,hola}">
+
+    VIDEO 255 TAREA - AGREGAR UN NUEVO TODO
+
+Fijate que el v-model es fundamental,asi como los modificadores de eventos:
+
+  <button @click="openModal">Crear todo</button>
+  <Modal v-if="isOpen" @click.self="closeModal">
+    <template v-slot:header>
+      <h2>Add todo</h2>
+    </template>
+
+    <template v-slot:body>
+      <form @submit.prevent="handleSubmit">
+        <input type="text" v-model="taskDesc" />
+        <br />
+        <br />
+        <button>Submit</button>
+      </form>
+    </template>
+
+    <template v-slot:footer>
+      <br />
+      <br />
+      <button @click="closeModal">Cerrar</button>
+    </template>
+  </Modal>
+
+      VIDEO 256 SCOPED SLOTS APLICADO
+
+Fijate que esto realmente puede que se use bastante en código real.
+Podemos crearnos un slot para un ItemList(donde el componente será la colección entera pero cada slot es un item):
+
+* Fijate que users es una prop requerida,nunca puede ser sólo un atributo ya:
+
+<template>
+  <ul>
+    <slot v-for="user in users" :key="user.id" name="user" :user="user" />
+  </ul>
+</template>
+<script>
+  export default {
+    props:{
+      users:Array
+    }
+  }
+</script>
+
+Y ahora rescatamos cada slot con el v-slot:name="slotProps desde el padre:
+
+<div v-if="users.length > 0">
+  <user-list :users="users" v-slot:user="slotProps"></user-list>
+
+
+Obviamente dado que sabemos que tenemos acceso a slotProps.user desestructuramos,etc:
+
+  <div v-if="users.length > 0">
+  <!-- fijate que :users es imprescindible o "users" será un string.Siempre que mande props debo usar :prop="value" para mandar JS -->
+     <UserList :users="users" v-slot:user="{user}">
+      <h5>{{ user.first_name }} {{ user.last_name }}</h5>
+      <span>{{ user.email }}</span>
+     </UserList>
+  </div>
+
+  Muy interesante esto.Tiene pinta de usarse masivamente entre devs.
+
+  

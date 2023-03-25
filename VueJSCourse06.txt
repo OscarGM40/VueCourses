@@ -1,0 +1,3 @@
+        SECCION 18 QUASAR
+
+La idea de Quasar es tener un montón de componentes ya estilizados.También tiene una API para rehacerlos.En esta sección aprenderemos los principales conceptos relacionados a Quasar, un framework basado en Vue.js que permite un desarrollo rápido gracias a un repertorio completo de componentes previamente estilizados.

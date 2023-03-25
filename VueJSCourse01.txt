@@ -697,6 +697,508 @@ Esta sección aunque es pequeña, contiene información importante sobre:
 
 Al final, crearemos una aplicación pequeña pero muy útil para poder ir tomando confianza en Vue.juntos.
 
+				VIDEO 59 INDECISION COMPONENT
 
+Creo un nuevo componente llamado Indecision.vue y lo importo y exporto en el App.vue.Fernando provee un Gist con los estilos.
+NOTA: fijate que el atributo scoped hace que ese CSS sólo sea aplicado para ese componente( <style scope></style>).Fijate que fácil es con Vue crear estilos locales a un componente
+
+			VIDEO 60 WATCH - OBSERVAR CAMBIOS EN UNA PROPIEDAD REACTIVA
+
+NOTA: fijate que el PDF es muy útil(además tengo un resumen de todo en la pag 1).Bien,centrandonos en el video y con lo anterior puedo ver que tengo otra propiedad llamada watch.Watch es un objeto(como methods) en el cual puedo poner Observables,es decir ,estar escuchando por cambios en flujos de datos.
+ 
+ <input type="text"  v-model="question" placeholder="Hazme una pregunta" />
+    <p>Recuerda terminar con un signo de interrogación (?)</p>
+    <div>
+      <h2>{{ this.question }}</h2>
+
+<script>
+export default {
+  data() {
+    return {
+      question: "",
+    };
+  }, 
+  watch:{
+    question(value,oldValue){ }
+  },
+
+IMPORTANTE: el método question(val,oldVal) del objeto watch se tiene que llamar igual que alguna propiedad existente(en este caso 'question'
+Este método question() se va a estar disparando cada vez que la propiedad cambie,ojo.Le llegará el valor anterior y el nuevo,pudiendo hacer comprobaciones,etc
+
+Por ahora lo único que queremos saber es cuando el usuario introduce un signo de interrogación(?).Dispararemos la petición al API en ese momento
+
+  watch:{
+    question(value,oldValue){ 
+       if(!value.includes('?')) return;
+        //realizar petición <- si llega aqui si lo incluye
+    }
+  },
+
+NOTA: en este caso tenia una prop,pero si question fuera un objeto y quiero escuchar sólo por el cambio sobre una propiedad tengo que pasarle la propiedad "deep" al watch.Genial que tenga esto ya contemplado el framework.
+
+			VIDEO 61 REALIZAR PETICION HTTP A UN BACKEND EN VUE
+
+No es buena práctica realizar la petición en el watcher.Lógicamente queremos abstraer la lógica y llamar a un método que haga la petición.
+
+  async getAnswer() {
+      this.answer = "Pensando...";
+      const { answer, image } = await fetch("https://yesno.wtf/api").then((r) =>
+        r.json());
+      this.answer = answer;
+      this.img= image
+    },
+  },
+
+IMPORTANTE: desde el primer momento que estoy usando fetch tengo que usar async y await.Fijate que la img es otra propiedad,pero la tengo que bindear(por ser atributo ??)
+
+<image v-bind:src"img" /> 
+TIP: puedo usar simplemente <img :src="img" /> donde img es la propiedad bindeada.Si es una propiedad es bindeo,si es el contenido de una etiqueta es con {{}}
+
+HINT: aún más interesante es no mostrar la img mientras sea null:
+<img v-show="img" :src="img" alt="bg" />
+
+NOTA: si que podia hacerlo sin el async,pero todo dentro de los then:
+getAnswer() {
+   ...
+   fetch('...')
+      .then(r => r.json())
+      .then(data => {
+          this.answer = data.answer 
+          this.img = data.image;
+      });
+}
+Si no me hacia el this.answer antes del fetch.Obviamente lo mejor es usar asincronia.Y de nuevo el v-bind es para atributos(lo cual incluye clases y estilos inline)
+
+			VIDEO 62 PULIENDO ALGUNOS DETALLES 
+
+Implementamos el map para la response y una bandera para mostrar solo la pregunta entera,etc.
+
+		SECCION 06 INTRODUCCION A PRUEBAS UNITARIAS Y DE INTEGRACION EN VUE
+
+Esta es nuestra primera sección de pruebas unitarias, el objetivo es que probemos todo el trabajo realizado anteriormente. Aquí tocaremos los siguientes temas:
+
+1- Jest
+2- Expect
+3- Spies (SpyOn)
+4- Ciclo de vida de las pruebas
+5- wrapper
+6- ShallowMount
+7- Mount
+8- Expect
+9- Snapshot
+10- Props
+11- Mocks
+12- Y mucho más
+
+Antes de que piensen en saltarse la sección, porque muchos consideras las pruebas algo innecesario, miren los videos iniciales, son muy importantes, y también recuerden que hay muchas personas que están cursando este curso únicamente por la sección de pruebas.
+
+      VIDEO 66 PRUEBAS UNITARIAS Y DE INTEGRACION
+
+Las pruebas unitarias están enfocadas en pequeñas funcionalidades de una aplicación mientras que las de integración se enfocan en cómo reaccionan varias piezas en conjunto.Usualmente estas piezas ya corrieron sobre una prueba unitaria.
+
+Fijate que las pruebas deberian ser fáciles de escribir,fáciles de leer,confiables,rápidas y principalmente unitarias.
+Recuerda que esto son las pruebas automáticas,las pruebas manuales las hacemos en el navegador
+Las pruebas automáticas deben ejecutarse siempre que se vaya a subir a producción una vez más.
+
+      VIDEO 67-68 MI PRIMERA PRUEBA + EXPECT
+
+Documentación: https://jestjs.io/
+Antes de nada fijate que la aplicacion ya viene configurada para ejecutar las pruebas.Si no fuera asi tengo que instalar las siguientes librerias(jest y @vue/vue3-jest) y configurar el script.Además,tendría que crear el file jest.config.js:
+
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "test:unit": "vue-cli-service test:unit"
+  },
+  "dependencies": {
+    "core-js": "^3.8.3",
+    "vue": "^3.2.13"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-unit-jest": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "@vue/test-utils": "^2.0.0-0",
+    "@vue/vue3-jest": "^27.0.0-alpha.1",
+    "babel-jest": "^27.0.6",
+    "jest": "^27.0.5"
+  },
+
+En el jest.config.js:
+  module.exports = {
+  preset: '@vue/cli-plugin-unit-jest'
+}
+
+Fijate que al ejecutar 'yarn test:unit' solo voy a ejecutar los test de dentro de la subcarpeta test/unit.
+
+IMPORTANTE: tras haber arreglado los settings iniciales de la prueba y haber aplicado una acción hay que hacer un assert.Es aquí donde entra jest y su expect(https://jestjs.io/docs/expect).
+Expect me da acceso a los "matchers",que me permiten validar diferentes cosas.De momento hacemos una simple prueba
+
+Intenta aprovechar este curso para mejorar el naming de las pruebas:
+// en el describe va únicamente el nombre del componente
+describe('Example Component', () => {
+  // en it debo usar como descripcion lo que quiero testear
+  it('debe de ser mayor a 10', () => {
+    // value es el sujeto de pruebas(qué es un sujeto de pruebas??)
+    // arreglar(Arrange)
+    let ouncesPerCan = 5; 
+
+    // shallow es poco profundo(sólo renderiza un nivel??) (shallow !== deep)
+    // actuar(Act)
+    ouncesPerCan = ouncesPerCan + 12;
+    
+    // afirmar(Assert) 
+    expect(ouncesPerCan).toBeGreaterThan(10)
+  })
+})
+Esta prueba realmente no tiene sentido,ya que no estoy testeando nada de mi aplicación
+
+VIDEO 69 TESTING A SNAPSHOT
+
+Una prueba bastante interesante suele ser testear el snapshot.Fijate que puedo crear copias profundas o no,como siempre.De momento un shallowMount nos vale para montar el componente en el DOM Virtual que hay que montar los componentes en un entorno de testing:
+
+import { shallowMount } from "@vue/test-utils";
+// en Vue la @ hace referencia al punto de entrada,es buena idea usarlo
+import Counter from "@/components/Counter";
+
+describe("Counter Component", () => {
+  test("should match with its snapshot", () => {
+    // una prueba interesante puede ser comprobar el snapshot ??
+
+    //  los componentes en un ambiente de testing se renderizan en un DOM virtual,de alguna manera tenemos que montarlos en ese DOM.Aqui es donde entran métodos como shallowMount o mount(éste monta todo el componente y sus componentes,luego el proceso es más pesado)
+    // obviamente de momento nos vale shallowMount
+    const wrapper = shallowMount(Counter);
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+});
+
+Fijate que estos métodos mount,shallow etc son para montar los componentes en un DOM virtual.Interesting.Fijate tmb que hemos usado wrapper.html()
+Para actualizar el snapshot simplemente pasar -u al comando (y si fallara usar -- -u para que vaya al subcomando y no a npm o yarn)
+  
+  VIDEO 70 VERIFICAR VALOR EN UNA ETIQUETA HTML
+
+De momento queremos ver el valor del <h2>.Para encontrar una tag con jest se usa find(findAll si quiero todos).Fijate que con find puedo buscar por etiquetas,por data-attributes,componentes,...
+Obviamente nos vale el find,pero recuerda que va a buscar el primero
+
+const wrapper = shallowMount(Counter); <- investigar como pasarle props
+const firstH2= wrapper.find('h2'); <- buscamos el primer h2
+* Ojo, find devuelve un DOMWrappper,para ver el contenido tengo que usar el método DOMWrapper.text()
+expect(firstH2.text()).toBe('Counter');
+En resumen,busco con find | findAll
+
+NOTA:fijate que podria usar menos pasos:
+const h2Content = wrapper.find('h2').text() <- saco el text ya
+
+TIP: dado que con find puedo buscar por etiquetas perfectamente puedo estar usando styled-components o buscar por un componente y pasarle por ejemplo find(Counter) find(Container).Perfectamente puedo usar un primer expect para ver si encuentra el DOMWrapper y asi saber que aplicarle el .text() no va a fallar:
+
+const wrapper = shallowMount(Counter);
+expect(wrapper.find('mytag').exists()).toBeTruthy(); <- si pasa se que puedo usar .text()
+NOTA:fijate que el exists() es bastante interesante
+
+VIDEO 71 FIND VS FINDALL
+
+Obviamente findAll devuelve un array de DomWrappers,luego puedo buscar el segundo parrafo:
+  const wrapper = shallowMount(Counter);
+  const pTags = wrapper.findAll('p'); 
+  // ojo que .text() devuelve el contenido como string(aunque fuera un Number en el component)
+  expect(pTags[1].text()).toBe("10");
+
+NOTA: esta prueba está mal configurada,ya que buscar por indices de posiciones es un error muy grande.Un simple cambio de orden de los parrafos daría al traste con el test.Realmente no es buena idea usar findAll salvo en contadas ocasiones.Asi pues,sería mejor agregar un identificador único(lo mejor es usar un data-testid) y olvidarnos del indice:
+  <p data-testid="counter">{{ counter }} </p>
+TIP: al conjunto de atributos html que empiecen por data-xxx se le llama data-attributes.Fijate además que es html y por ello van en minusculas y guiones,no estoy en el framework
+
+Ahora si,usamos un find y nos olvidamos de la posicion
+// fijate que sin usar plugins con jest puedo buscar usando wrapper.find('[data-testid="value"]').Puedo buscar por cualquier data-attribute,ojo
+const PByDataAttribute = wrapper.find('[data-testid="counter"]') <- ojo que va entre corchetes
+expect(PByDataAttribute.text()).toBe("100")
+
+IMPORTANTE: recuerda que los atributos data-testid los puedo quitar con un plugin de babel,obviamente, llamado 'babel-plugin-jsx-remove-data-test-id':
+
+npm i babel-plugin-jsx-remove-data-test-id
+
+Luego en el babel.config.js agregarlo  quedaría así:
+
+module.exports = {
+  presets: ["@vue/cli-plugin-babel/preset"], <- cambiar el preset por el que necesite
+  env: {
+    production: {
+      plugins: [
+        [
+          "babel-plugin-jsx-remove-data-test-id",
+          {
+            attributes: ["data-test-id", 'data-testid']
+          }
+        ]
+      ]
+    }
+  }
+};
+
+IMPORTANTE: investigar si realizar snapshots nos ayuda a reducir pruebas estructurales
+
+    VIDEO 72 SIMULAR EVENTOS
+
+Para simular eventos en Vue tengo el método element.trigger('event-type'):
+  increaseButton.trigger('click')
+
+IMPORTANTE: al probar el cambio al hacer click el procedimiento no es totalmente síncrono.trigger:
+
+Ojo,es en este punto en Vue(investigar más)
+    await increaseButton.trigger("click");
+    expect(counter.text()).toBe("11");
+
+Fijate esta opcion que interesante:
+ const [increment, decrement] = wrapper.findAll('button')
+
+ VIDEO 73 TIPS PARA OPTIMIZAR CODIGO
+
+ En este punto tenemos dos refactor posibles,al menos:
+
+* Sacar la llamada inicial al ciclo de vida
+  let wrapper;
+  beforeEach( () => {
+    wrapper = shallowMount(Counter);
+    jest.clearAllMocks();
+  })
+
+* Usar una única llamada a findAll para sacar los dos botones mediante destructuring de arreglos.Interesante:
+  const [increaseButton,decreaseButton] = wrapper.findAll("button");
+
+    VIDEO 74 LEER PROPS DESDE UN AMBIENTE DE TESTING
+
+Primero es muy importante entender que lo que estoy montando en la prueba es el componente counter(del counter.vue) y no su llamada en el app.vue o cualquier otra llamada dentro de la app.Digamos que estoy llamando a la definición del componente(y por ello el title siempre será undefined hasta que le pase uno en el test).
+En resumen,el componente debe ser proveido de valores en el test.De momento solo estamos viendo como leer las props,no como mandarlas en testing
+
+// ver las props del componente en Vue(wrapper.props())
+console.log(wrapper.props());
+
+// acceder a una prop en concreto
+console.log(wrapper.props("start"));
+
+// otra forma de acceder a una o varias props
+const { start } = wrapper.props();
+console.log(typeof start) <- ojo que es un Number y .text() me da un String
+
+const value = wrapper.find('[data-testid="counter"');
+expect(value.text()).toBe(start.toString()) <-hay que castear uno de los dos
+
+      VIDEO 75 ENVIAR PROPS Y EVALUARLAS
+
+Para establecer props también hay varias formas.Una es como segundo argumento del método shallowMount:
+
+  test("Debe de establecer la prop title correctamente", () => {
+    const wrapper = shallowMount(Counter, {
+      props: {
+        title: "Hello world",
+      },
+    });
+    expect(wrapper.find("h2").text()).toBe("Hello world"); <- recuerda no usar literales hardcodeados
+  });
+
+Otra es con await wrapper.setProps pero ojo que es asincrona este setProps,pues el primer render viene con el valor por default:
+
+  test('prop "title" debe mostrar valor indicado', async () => {
+    const title = "Something";
+    await wrapper.setProps({ title });
+
+    const value = wrapper.find("h2").text();
+    expect(value).toBe(title);
+  });
+
+  NOTA: recuerda que si mando un String a una prop que espera un Number Vue solo me da un Warning
+
+  VIDEO 76 PRUEBAS INICIALES EN EL INDECISION COMPONENT
+
+De momento simplemente creamos la prueba para el snapshot:
+
+import { shallowMount } from "@vue/test-utils";
+import Indecision from "@/components/Indecision";
+
+describe("Indecision Component", () => {
+  let wrapper;
+  beforeEach(() => {
+    wrapper = shallowMount(Indecision);
+    jest.clearAllMocks();
+  });
+
+  test("Debe de hacer match contra el snapshot", () => {
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+});
+
+      VIDEO 78 SPY Y MOCKS EN TESTING
+
+Primero que nada recuerda que lo que se defina en el componente es lo que ejecutaré en el testing.Si meto un console.log aqui:
+
+watch: {
+    question(value, oldValue) {
+      this.isValidQuestion = false;
+      console.log({ value });
+dado que ese watch estaba en el input va a imprimir el valor de value el archivo de pruebas.Perfecto
+
+En cuanto a la prueba,fijate que es muy fácil escribir en el input con Vue(o es por Jest ??):
+
+test('no debe de disparar la petición si no escribo en el input el simbolo de interrogacion', async() => { 
+    const input = wrapper.find('input'); //solo hay uno,asinto
+    await input.setValue('Hola mundo');
+
+  })
+
+Y de nuevo fijate que es muy claro donde va el await y porqué lo lleva.
+
+Bien,vamos a crear un espia sobre el console.log del watch(en el beforeEach además):
+  beforeEach(() => {
+    wrapper = shallowMount(Indecision);
+    jest.clearAllMocks();
+    clgSpy = jest.spyOn(console,'log')
+  });
+
+Con el espia echo podriamos esperar que se haya llamado una vez:
+    await input.setValue("Hola mundo");
+    expect(clgSpy).toHaveBeenCalledTimes(1);
+
+    VIDEO 79 SPY CON LA INSTANCIA DE VUE
+
+Realmente no hemos comprobado que el getAnswer no haya sido llamado.Para hacer esto vamos a usar un espia sobre el método.
+IMPORTANTE: fijate que el meodo esta declarado en el componente,luego es el propio componente el que tengo que espiar.
+Con esto claro pudiera parecer que esto funcionaría:
+ const getAnswerSpy = jest.spyOn(wrapper,'getAnswer')
+
+ Pero lo que devuelve shallowMount(Indecision) realmente es un objeto inmenso que forma ese componente,pero wrapper no es una función,sino un objeto inmenso.Simplemente tengo que acceder a otra propiedad llamada vm del wrapper
+
+  const getAnswerSpy = jest.spyOn(wrapper.vm,'getAnswer')
+
+  NOTA: vm es la instancia de Vue(luego el wrapper está aún por encima!)
+  https://v1.test-utils.vuejs.org/api/wrapper/
+
+Property vm:
+Component (read-only): This is the Vue instance. You can access all the instance methods and properties of a vm with wrapper.vm. This only exists on Vue component wrapper or HTMLElement binding Vue component wrapper.
+
+Entonces sabiendo que ya estamos espiando bien al método del componente,simplemente hacemos una aserción de que no se esta llamando aún.Perfectua
+
+expect(getAnswerSpy).not.toHaveBeenCalled();
+
+MUY IMPORTANTE: si voy a la docu puedo ver que puedo acceder mediante ese wrapper no solo a la instancia(mediante vm) sino a las clases (mediante wrapper.classes()),atributos,emisiones(mediante emitted()),exists(),find(),html(),props(),etc
+
+  VIDEO 80 TAREA. ESPERAR QUE EL GET ANSWER SEA LLAMADO
+
+Importante: los tests se ejecutan sobre Node,y no sobre un navegador.Voy a tener problemas con funciones como window.alert o window.fetch.Fijate además que la API fetch no existe en Node,y nuestro getAnswer esta haciendo una petición con fetch.Nuestro espia va a fallar por esto.
+
+En este punto tenemos que mockear la función fetch,que se encuentra dentro del objeto window,pero estamos en Node y sólo vemos al objeto global.El test está buscando la api Fetch en un entorno Node y obviamente no lo va a encontrar
+
+TIP:realmente solo tengo que mockear esa funcion(que recuerda que es global.fetch),asi que en cualquier linea escribo esto:
+global.fetch = jest.fn()
+
+Claro que ahora falla el res.json().Obviamente aún falta mockear al go más
+
+      VIDEO 81 TESTEAR LA API FETCH - PROMESAS
+
+Podemos ver el error 'cannot read property then of undefined'.Lo que sucede es que ese mock global.fetch = jest.fn() devuelve un undefined, y realmente nos falta ese then e inclusive despues faltará el json().
+
+PASO UNO: en vez de llamar a jest.fn() que sin args devuelve un undefined realmente necesitamos que se devuelva una promesa luego tiene que ser:
+global.fetch = jest.fn( () => Promise.resolve() )
+
+PASO DOS: sin embargo ahora veré que no puede leer el json() de undefined.Esto es porque ahora Promise.resolve() devuelve un undefined y undefined.json() da un Null Pointer Exception.
+Asi pues no puedo devolver una promesa vacia,sino que tiene que devolver minimo el metodo json:
+global.fetch = jest.fn( () => Promise.resolve({
+  json: () => true
+}))
+*Sin embargo,éste método tmb es una promesa,luego no nos vale que devuelva cualquier cosa,tiene que devolver otra promesa:
+global.fetch = jest.fn( () => Promise.resolve({
+  json: () => Promise.resolve({
+    answer: "yes",
+    forced: false,
+    image : "https://image.com"
+  })
+}))
+
+Ahora si,con la llamada fakeada perfectamente vamos a llamar al método,esta vez fisicamente(desde wrapper.vm):
+
+ test("pruebas en el metodo getAnswer- Peticion exitosa", async () => {
+    // llamamos fisicamente al método(fijate que es asincrono)
+    await wrapper.vm.getAnswer();
+    console.log(wrapper.vm.img)
+    console.log(wrapper.vm.answer)
+  });
+
+  Desde aqui ya solo es hacer aserciones que testeen algo,por ejemplo que el <img v-show="img" :src="img" exista:
+
+  expect(wrapper.find("img").exists()).toBe(true);
+
+  O que la propiedad img tenga el valor correcto:
+    expect(wrapper.vm.img).toBe("https://image.com");
+  Fijate como hemos accedido a una propiedad con wrapper.vm.property o a un método con wrapper.vm.method(),desde luego esto es muy interesante.¿Como se puede hacer esto en React?
+  Fijate también que estoy testeando que el componente hace lo que tiene que hacer,muy importante:
+    expect(wrapper.vm.answer).toBe("Si!");
+  Desde luego necesito aprender a hacer esto en React.
+
+
+      VIDEO 82 SIMULAR UN FALLO EN EL API
+
+Fijate que lo vamos simular en el primer punto de entrada(no va a llegar al .then):
+  try {
+    this.answer = "Pensando...";
+    const { answer, image } = await fetch("https://yesno.wtf/api")
+    .then((r) => r.json());
+    this.answer = responses[answer];
+    this.img = image;
+  }catch(e){
+    console.log("Error in the request: ",e)
+    this.answer = 'No se pudo cargar del API';
+    this.img= null
+  }
+
+Y fijate también que ya he creado una implementación(un mock) de global.fetch,no tengo que volver a llamar a jest.fn() si no cambiar el retorno(es como un let,la primera vez lo defini,las siguientes veces es un update).Recuerda,la primera vez es jest.fn() ,despues es mockInstance.mockImplementation.En resumen:
+
+global.fetch.mockImplementationOnce( () => Promise.reject('API is down')) <- no necesito más,va a entrar por el catch,pero es que además no estoy jodiendo la primera implementación exitosa,solo updateandola
+Ahora ya podria mirar que wrapper.vm.img sea null o wrapper.vm.answer sea 'No se pudo cargar del API',etc.
+
+Fijate por último que v-if y v-show son diferentes para el testing y que en vez de await wrapper.vm.method puedo usar el espia.Ambos van a llamar al método con la implementación real.
+Dos videos fundamentales(81 y 82) que debo masterizar.
+TIP: para testear axios puedo hacer esto:
+import axios from 'axios';
+
+jest.mock('axios'); <- realmente no necesito más,ya que voy a crear un mock en cada test:
+
+test('test con la impl del get', async () => {
+  axios.get.mockImplementationOnce( () => Promise.resolve({
+    data: {
+        hits: [
+          {
+            objectID: '1',
+            title: 'a',
+          },
+          {
+            objectID: '2',
+            title: 'b',
+          },
+        ],
+      },
+    };
+  }))
+})
+
+Recuerda que axios siempre me va a devolver un objeto con la propiedad data(y otras más) con la data
+Fijate como con jest.mock('axios') mockeo el módulo entero
+
+Recuerda que jest.mock no lo almaceno y es para modulos/files(me da igual si mockear el export default de ese file o el export named o cualquier combinación):
+
+import defaultExport,{bar,foo} from '../module';
+
+jest.mock('../module', () => {
+  const originalModule = jest.requireActual('../module');
+  return {
+    __esModule:true,
+    ...originalModule, <- me traigo todo
+    default: jest.fn( () => 'mocked default',
+    foo: 'mocked foo' <- esto sería una propiedad,puedo hacer que sea un método,realmente puedo hacer lo que quiera
+  }
+})
+
+const defaultExportCall = defaultExport(); <- siempre que sea un method,claro
+expect(defaultExportCall).toBe('mocked default')
+expect(defaultExportCall).toHaveBeenCalled()
+expect(foo).toBe('mocked foo')
+Muy interesante todo esto,willy
 
 

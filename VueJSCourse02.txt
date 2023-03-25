@@ -1,0 +1,1388 @@
+SECCION 07 POKEMON GAME
+
+En esta sección haremos un juego que nos permita aprender mucho sobre Vue y la comunicación entre componentes. Puntualmente veremos:
+
+1- Mount
+2- Axios en Vue.js
+3- Emitir eventos
+4- Escuchar eventos personalizados
+5- Funciones para generar información aleatoria
+6- Lógica para resolver la necesidad de la aplicación
+
+VIDEO 87 INICIO DEL PROYECTO
+
+Creamos una nueva aplicación con:
+>vue create 04-pokemon-game
+Selecciono añadir features manualmente y agrego el unit testing(sino lo agrego tendria que configurar los archivos yo,instalar las libs,etc)
+Recuerda no guardar como configuración modelo,ya que es muy simple
+
+Se recomienda esta estructura de directorios para proyectos un poco más grandes que éste.Eventualmente la implementaremos:
+src/
++-- modules/
+|   +-- moduleA/
+|       +-- components/
+|       +-- services/
+|       +-- helpers/
+|       +-- router/
+|       +-- store/
+|   +-- moduleB/
+|   +-- moduleC/
+
+En resumen,no se recomienda usar la estructura por default,sino crear la carpeta src/modules lo primero de todo y despues crear submodulos en base a lógica de negocio,etc
+NOTA: puedo omitir la extensión al importar componentes en Vue:
+import PokemonPage from "./pages/PokemonPage";
+
+Recuerda también que cuando un componente consuma otros componentes los tiene que importar y exportar también(aparte que cada uno de esos componentes consumidos tiene que exportarse con un name):
+<script>
+import PokemonPicture from "./../components/PokemonPicture";
+import PokemonOptions from "./../components/PokemonOptions";
+
+export default {
+  name: "PokemonPage",
+  components:{
+    PokemonPicture,PokemonOptions
+  }
+};
+</script>
+
+    VIDEO 89 ESTILOS Y MAQUETACIÓN
+
+Fijate como puedo quitar el brillo a una imagen(dejando la silueta en negro) mediante un filter y el método brightness.Recuerda que debo agregar scoped a cad etiqueta de estilos que quiera que sean locales al componente:
+
+<style scoped>
+.hidden-pokemon {
+  filter: brightness(0);
+}
+</style>
+
+Como API usaremos https://pokeapi.co.Fijate que los snippets empiezan por vbase ahora
+
+  VIDEO 90 FUNCIONALIDAD DEL POKEMON PICTURE
+
+Vamos a crear una prop de tipo Number.Fijate que para que sea asi tengo que usar v-bind(el shortcut es :):
+ 
+ <PokemonPicture :pokemonId="4" /> === <PokemonPicture v-bind:pokemonId="4" />
+
+ Y para consumir una computed property lo mismo,hay que hacer un v-bind con la misma sintaxis(fijate que hacer un v-bind hace que lo que haya como valor sea interpretado como Javascript y no un string):
+  <img
+      :src="imgSrc" <- imgSrc es una propiedad computada
+      class="hidden-pokemon"
+      alt="pokemon"
+    />
+
+ La computed se hace asi:
+  computed:{
+    imgSrc(){
+      return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/${this.pokemonId}.svg`;
+    }
+  } 
+
+    VIDEO 91 LOGICA PARA CAMBIAR DE IMAGENES
+
+Eventualmente el PokemonOptions debería recibir un arreglo de 4 pokemons de forma aleatoria.De momento creamos un arreglo de 650 posiciones asi:
+
+const pokemons = Array.from( Array(650)); 
+* Fijate que pokemons ahora mismo es un arreglo de 650 undefined
+return pokemons.map( (_,index) => index + 1) <- meto en cada posición su index+1,obteniendo un arreglo de numeros
+
+Ahora los devolvemos al azar.Fijate que fácil va a ser con sort,pues los va a ordenar si son mayores a 0 o menores:
+const mixedPokemons = pokemons.sort( () => Math.random() - 0.5) <- esto va a soltar positivos y negativos aleatoriamente,reordenandolos
+
+VIDEO 92 OBTENER NOMBRES DE LOS POKEMONS & REALIZAR PETICION
+
+La idea es llamar al endpoint pokemon/:id,solo por motivos didacticos(ya que era mejor haber usado una con los 650,que incluso es más ligera que el detalle de un pokemon).Empezamos pues instalando axios:
+>yarn add axios
+
+Creamos nuestra instancia en la carpeta 'api'
+import axios from "axios"
+
+const pokemonApi = axios.create({baseUrl:"xxx"})
+
+Y simplemente creamos un Promise.all:
+const getPokemonNames = async ([a, b, c, d] = []) => {
+  const [pk1, pk2, pk3, pk4] = await Promise.all([
+    await pokemonApi.get(`/${a}`), //  ya mete el await dentro el Promise.all
+    pokemonApi.get(`/${b}`), // no es necesario el await interno,asinto
+    pokemonApi.get(`/${c}`), //
+    pokemonApi.get(`/${d}`), //
+  ]);
+
+  return [
+    {
+      name: pk1.data.name,
+      id: pk1.data.id,
+    },
+    {
+      name: pk2.data.name,
+      id: pk2.data.id,
+    },
+    {
+      name: pk3.data.name,
+      id: pk3.data.id,
+    },
+    {
+      name: pk4.data.name,
+      id: pk4.data.id,
+    },
+  ];
+};
+
+IMPORTANTE: fijate que el Promise.all no necesita del await por cada promesa interna,con el suyo ya vale(aunque es indiferente ponerlo o no).Genial,ya tenemos los pokemons
+Recuerda usar console.table para objetos(sobre todo en el curro)
+
+VIDEO 93 MOSTRAR LAS OPCIONES POSIBLES- CICLO DE VIDA INICIAL
+
+Vue ya viene con unos métodos predefinidos que son llamados en determinados momentos(al crearse un componente,al destruirse,al cambiar,etc...).Los tengo en el PDF,ojo.
+Si miro el PDF puedo ver que me valdría el created o el mounted.Realmente no tiene complejidad,pero ojo,son métodos(igual que data) y no propiedades como methods o computed:
+
+ data(){
+    return{
+      pokemonArr: []
+    }
+  },
+  methods:{ <- propiedad
+    async mixPokemonArray(){
+      try{
+        this.pokemonArr = await getPokemonOptions();
+      }catch(e){
+        console.log("Error in the request: ",e)
+        this.pokemonArr=[]
+      }
+    }
+  },
+  mounted(){ <- lifecycle
+    this.mixPokemonArray()
+  }
+
+  IMPORTANTE: fijate que no tengo que poner await this.mixPokemonArray().Los ciclos de vida son asincronos por naturaleza,supongo
+  Ya solo es recibirlo por props en el otro Cmp e iterar
+    <ul>
+     <li v-for="pokemon in pokemons">
+     {{pokemon.name}}
+     </li>
+    </ul>
+
+    VIDEO 94 SELECCIONAR UN POKEMON ALEATORIAMENTE
+
+  Creamos una nueva propiedad en el padre para el pokemon que queremos acertar:
+  data(){
+    return {
+      ...
+      pokemon:null
+    }
+  }
+    const rndInt = Math.floor(Math.random() * 4);
+    // agarro un pokemon de forma aleatoria
+    this.pokemon = this.pokemonArr[rndInt];
+
+Sin embargo,fijate que por unos momentos ese pokemon es null y el componente hijo trata de acceder a null.id antes de tener el pokemon,pues es una petición.Hay que corregir esto.Una sería usar un v-if en el padre para que no renderize al hijo:
+
+ <div v-if="pokemon">
+    <PokemonPicture :pokemonId="pokemon.id" :showPokemon="true" />
+    <PokemonOptions :pokemons="pokemonArr" />
+  </div>    
+
+Claro que esto nos hace ver por unos momentos una pantalla en blanco.Aqui entramos en el terreno de los loadings,pero Vue proporciona una directiva muy interesante llamada v-else que va en conjunción con un v-if,lógicamente:
+<h1 v-if="!pokemon">Espere por favor...</h1>
+<div v-else>
+ <h1>¿Quién es este pokémon?</h1>
+    <PokemonPicture :pokemonId="pokemon.id" :showPokemon="true" />
+    <PokemonOptions :pokemons="pokemonArr" />
+</div>
+
+Esta directiva no necesita de ninguna condición,ya que va con su v-if correspondiente,entrando cuando la condición del mismo no se cumpla.
+De esta forma me ahorro escribir dos v-if,bien por Vue aqui.
+
+
+VIDEO 95 $emit - EMITIR EVENTOS HACIA ARRIBA
+
+En este punto nos falta que el onClick sobre una opcion transmita esa opcion hacia el padre,indicando que debe de cambiar de silueta.Vue hace esto de una forma muy sencilla también.
+
+NOTA:hay varias propiedades y/o métodos en el objeto global Vue que son accedidas mediante el símbolo de dollar.Uno de ellos es $emit()
+NOTA:si bien en otros lenguajes ese $ puede ser un puntero a memoria en Javascript es un simple caracter adicional que no significa nada,solo da contexto para indicar al desarrollador que es algo propio de Vue,indicandole que no debe tocar nada.
+
+Si por ejemplo solo fuera emit el dev podria pensar que es algo de otra persona y borrarlo o modificarlo.
+
+IMPORTANTE: para acceder a este $emit desde un método en el <script></script> tengo que usar this.$emit().En realidad lo puedo usar en la template con this.$emit,pero no hace falta en la template(si en el script)
+
+Ahora si,$emit(arg1,arg2?) son dos argumentos,el primero es obligatorio y es el nombre del evento que quiero emitir,luego:
+
+@click="$emit('selectPokemon',pokemon.id)
+
+IMPORTANTE: lo que he hecho es crear un evento llamado 'selectPokemon' en el hijo,para que lo consuma el padre es igual,es con @event-name.Recuerda también que Vue me deja definir un evento en el hijo en camelCase y consumirlo en kebab-case:
+
+  <PokemonOptions :pokemons="pokemonArr" @select-pokemon="checkAnswer($event)" /> <- si creo un custom event que se llama selectPokemon | select-pokemon tengo que llamarlo con @select-pokemon
+
+  El método de momento no hace nada
+  checkAnswer(event){
+      console.log('Pokemon Options llamado')
+    }
+
+NOTA:el segundo argumento de $emit es opcional,porque no siempre necesitaré mandar data desde el hijo,pero en este caso si necesito mandar el pokemon.id
+  @click="$emit('selectPokemon',pokemon.id)"> <- 2º argumento la data a enviar
+
+
+IMPORTANTE: $event es otra palabra reservada,y simboliza todo el evento(en este caso $event es el id,pero en inputs de formulario tendré que usar $event.target.value para mandar solo el valor)
+
+TIP: realizar esto @select-pokemon="checkAnswer($event)" y esto @select-pokemon="checkAnswer" es exactamente lo mismo,ya que el primer argumento va a pasar automáticamente entre funciones en Javascript.
+
+NOTA: dentro del template,como ya es parte del componente,el THIS está implicito(aunque podría ponerlo)
+
+IMPORTANTE: Vue no solo hace la traduccion de camelCase a kebab-case para eventos,también lo hacer para las props(siguiendo asi las buenas prácticas de que en el HTML deberia usarse kebab-case):
+Perfectamente puedo cambiar esto:
+<PokemonPicture :pokemonId="pokemon.id" :showPokemon="showPokemon" />
+por esto:
+<PokemonPicture :pokemon-id="pokemon.id" :show-pokemon="showPokemon" />
+y rescatarlas asi en ese PokemonPicture:
+ props:{
+    pokemonId:{
+      type: Number,
+      required:true
+    },
+    showPokemon:{
+      type: Boolean,
+      required:true,
+      default:false
+    }
+  },
+
+No solo esto,sino que incluso en el naming del componente hace la traducción:
+<pokemon-picture :pokemon-id="pokemon.id" :show-pokemon="showPokemon" />
+Aunque dejarlos en PascalCase da mucho contexto al desarrollador de que es un custom component
+
+      VIDEO 96 RESULTADO Y REINICIO DEL JUEGO
+
+Creamos un par de propiedades más,para mostrar un mensaje,etc:
+  checkAnswer(selectedId) {
+      this.showPokemon = true;
+      this.showAnser = true;
+      this.message =
+        selectedId === this.pokemon.id
+          ? `Correcto, es ${this.pokemon.name}! `
+          : `Oops, era ${this.pokemon.name} ...`;
+    },
+
+NOTA: puedo usar una etiqueta <template></template> igual que tengo en React los fragments o en Angular los <ng-template></ng-template> Ninguna de estas tags va a computar en el HTML,son simples agrupadores en tiempo de desarrollo.De echo se recomienda usarlos en vez de divs por esto mismo.
+
+      VIDEO 97 DESPLEGAR APLICACION EN PRODUCCION
+
+Para generar el build ya tenemos el comando 'build'.Recuerda que al hacer un build tanto Vue como React,Angular,etc hacen un tree shaking,eliminando todo lo que la aplicación no necesita para producción
+Si ejecuto este comando veré que Vue genera la carpeta 'dist' y que le pone hashes a los archivos de css y js para que los navegadores no los cacheen(si solo tuvieran el nombre el navegador los cachea y en sucesivos builds el navegador seguiría cogiendo el primer archivo de la caché,lo cual obviamente no querriamos ) 
+
+      SECCION 08 PRUEBAS EN POKEMON GAME
+
+Tenemos mucho que probar,emisiones,mocks,comprobar aleatoriedad de ciertas funciones, tranmisiones de padre/hijo o hijo/padre,etc...
+
+Puntualmente hablaremos sobre:
+1- Pruebas con Axios
+2- Pruebas con data aleatoria
+3- Pruebas con emisiones
+4- Multiples emisiones al mismo tiempo
+5- stubs
+6- Revisión de cambio en propiedades reactivas (data)
+
+Esta sección contiene muchas pruebas nuevas que son necesarias en el día a día del unit test
+
+          VIDEO 101 PRUEBAS CON AXIOS
+
+Vamos a probar el archivo donde creamos una instancia de axios.Realmente no hay mucho que probar ahí,excepto que la baseUrl sea la esperada.
+NOTA:recuerda que @/ en Vue hace referencia a la carpeta src luego:
+import pokemonApi from "@/api/pokemonApi";
+
+IMPORTANTE: fijate que salia el error 'cannot use import statement outside a module.Lo solucionamos agregando al jest.config.js:
+
+module.exports = {
+  preset: "@vue/cli-plugin-unit-jest",
+  transformIgnorePatterns: ["/node_modules/(?!(axios)/)"], <-añadir
+};
+
+TIP: cuando no sepa muy bien como proceder es buena idea hacer un console.log del file,por ejemplo:
+describe('PokemonApi: ', () => { 
+  test('should match baseUrl', () => { 
+    console.log(pokemonApi)
+   })
+ })
+
+Y asi podré ver el objeto que trae el modulo.Sabiendo sus propiedades ya podemos hacer la aserción:
+ expect(pokemonApi.defaults.baseURL).toBe("https://pokeapi.co/api/v2/pokemon");
+
+    VIDEO 102 PRUEBAS EN HELPERS
+
+FH recomienda empezar con las pruebas más fáciles,por eso empezamos por el file pokemonApi.Además,de ahora en adelante vamos a suponer que ese componente está perfectamente evaluado y funciona correctamente.
+Por esto vamos a seguir por los helpers(o podriamos seguir por el App.vue,pero los helpers son aun más sencillos).
+
+NOTA:esto es asi porque son funciones que no tienen relación con el mundo exterior,un componente siempre será más dificil que un helper,
+en teoría.
+
+Obviamente hay que importar las funciones que voy a testear.
+IMPORTANTE:cuando voy a testear equality en Jest tengo que preguntarme "¿de qué tipo?".Esto es reflejado por varios métodos de aserción de igualdad: toBe,toEqual y toStrictEqual.
+
+toBe compara la identidad referencial de los valores,mientras que toEqual hace una comparación profunda de las propiedades de los valores(usando Object.is).Por ello,toEqual es mejor para objetos(lo que incluye arrays y funciones,ojo).ToStrictEqual va un paso más allá que toEqual y también comprueba que dos objetos tengan el mismo tipo(lo cual en Typescript es muy interesante)
+
+TIP:dos objects en Javascript siempre apuntan a zonas de memoria diferente es por ello que compararlos con toBe dará fallo(luego toBe compara los punteros a memoria).ToBe para primitivos,toEqual para objetos.
+
+NOTA:muchas veces,al comparar arrays y objectos solo necesitaré comprobar partes de su contenido(que un objeto tenga determinada propiedad o un arreglo tenga determinado elemento...).Para ello Jest me proporciona los métodos toContain y toContainEqual.De nuevo la diferencia es la misma que toBe y toEqual
+
+expect.arrayContaining va un paso más alla y testea si un arreglo contiene un determinado subset de elementos(usando comparación profunda además).El método necesita de otra aserción adicional,lo cual lo hace muy flexible:
+
+expect([1,2,3]).toEqual(expect.arrayContaining([1,2]))
+
+expect.objectContaining funciona de forma análoga(ojo que ambos esperan o un objeto o un array)
+
+expect({a:1,b:2}).toEqual(expect.objectContaining({a:1}));
+
+Matching any/thing: en algunos casos ni siquiera es importante el valor del subelemento sino que simplemente haga match el type:
+expect(5).toEqual(expect.anything());
+expect(4).toEqual(expect.any(Number)) <-recuerda meterlo en un array si es la aserción adicional de arrayContaining
+
+Errors: Jest provee el método toThrowError para comprobar que una función lance un error.Opcionalmente,puedo pasarle un argumento para asertar el tipo del error lanzado:
+
+function divideBy10(a){
+  if(typeof a !== 'number){
+    throw new Error('NaN: ' + a);
+  }
+  return a/10;
+}
+
+expect(() => divideBy10('a')).toThrowError() <- observa como ejecutamos la función dentro del expect y como esperamos que tire un error,lo cual hará:
+expect( () => divideBy10('a')).toThrowError(/NaN/) <- también pasará
+
+TIP: recuerda que toEqual usa Object.is por detrás.Object.is determina si dos valores son iguales(ambos son true/false | undefined | null o strings,o el mismo objeto).Esta comparación no es igual al operador '==' ni al operador '==='
+Object.is('foo','foo') <- true
+Object.is(window,window) <-true pues son el mismo
+Object.is({},{}) <- false
+Object.is('foo','bar') <- false
+Object.is([],[]) <- false
+Object.is(null,undefined) <- false
+Object.is(null,null) <- true
+Fijate que is hago obj3 = obj1 y despues Object.is(obj1,obj3) da true pues apuntan al mismo objeto.Interesante este método.
+
+Esto es algo que tengo que tener muy claro.
+
+VIDEO 105 PRUEBAS EN POKEMON PICTURE
+
+Dado que en esta suite vamos a mandar props,no tiene sentido crear el wrapper en el beforeEach y dejarlo estático.Habrá que usar el segundo argumento del método shallowMount(cmp,options:{}):
+
+  test("1- should match snapshot", () => {
+    const wrapper = shallowMount(PokemonPicture, {
+      props: {
+        pokemonId: 1,
+        showPokemon: false,
+      },
+    });
+    expect(wrapper.html()).toMatchSnapshot();
+  });
+
+NOTA: fijate que si no mando las props me da un warning,pero pasaría la prueba.
+TIP: puedo ver que tengo varios métodos como img.attributes() | img.classes() text(),exists(),etc.Dado que queremos ver si el src está cogiendo el 100 como pokemonId es tan sencillo como:
+expect(img.attributes('src)).toBe("xxxx/100.svg)
+y lo mismo para clases o wrapper.props()
+Desde luego tiene buena pinta el testing con Vue.Debería de tratar de ver como hacer todo esto en React(acceder a los atributos,props y las clases)
+IMPORTANTE: en React tengo toHaveClass y toHaveAttribute,ambos de la libreria react-testing-library, para hacer lo mismo:
+
+expect(getByText("Send")).toHaveAttribute(
+    "href",
+    "mailto:example@example.com?subject=Hello"
+  );
+* Parece que toHave devuelve todos,puedo acceder a uno en concreto con getAttribute
+expect(getByText("Send").getAttribute("href")).toMatch(
+    /mailto:example@example.com/
+  );
+
+Volviendo al video puedo hacer aserciones de esta forma:
+    expect(img.attributes("src")).toBe(
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/100.svg",
+    );
+
+    expect(img.classes()).toContain("hidden-pokemon");
+    // otra forma sería asi
+    expect(img.classes("hidden-pokemon")).toBe(true);
+
+Genial.Muy prehistoric esta libreria,asinto.
+
+VIDEO 107 PRUEBAS EN POKEMON OPTIONS
+
+Este componente es un tanto especial,ya que tenemos que asegurarnos de que al hacer click en un <li></li> emitimos un evento(además de asegurarnos que emite el valor que debe emitir)
+Recuerda también que es buen momento para crear la carpeta mocks con los pokemons,pues los estamos necesitando en varios files ya(de momento metemos la carpeta en unit/mocks).Fijate que en nuestro proyecto quizás hubiera sido buena idea haber creado más carpetas
+
+NOTA: fijate que tengo también toMatchInlineSnapshot,aunque esto me va a traer la template a la prueba,en vez de a una carpeta aparte.Puede que no sea lo que quiera cuando sean componentes grandes.Además,el html es el mismo,parece mejor idea tener las snapshots recogidas en una carpeta y no embebidas en el test
+
+  VIDEO 108 TESTING DE EMISIONES DE EVENTOS
+
+ En Vue es incluso demasiado fácil ver que un evento se ha emitido(ojo,son eventos que hayan sido emitidos con $emit).Puedo acceder a los eventos emitidos con wrapper.emitted():
+   
+   const wrapper = shallowMount(PokemonOptions, {
+      props: {
+        pokemons: mockPokemons,
+        hasSelected: false,
+      },
+    });
+    const [pk1, pk2, pk3, pk4] = wrapper.findAll("li");
+    pk2.trigger("click");
+    console.log(wrapper.emitted()) 
+
+* Fijate que lo que hace es emitir un objeto con eventos como keys y que los valores emitidos van en un arreglo de arreglos.
+console.log
+ { selectPokemon: [ [ 2 ] ], click: [ [ [MouseEvent] ] ] }
+
+ Recuerda también que es obligación del desarrollador refactorizar código.Estos findAll son ideales para usar programación funcional:
+   
+   const liTags = wrapper.findAll("li");
+    liTags.forEach((li, index) => {
+      li.trigger("click");
+      expect(wrapper.emitted("selectPokemon")[index][0]).toBe(mockPokemons[index].id);
+    });
+
+VIDEO 109 PRUEBAS EN POKEMON PAGE
+
+PokemonPage es en teoría un poco más complejo ya que tiene la llamada a varios componentes hijos en él.Sin embargo,debemos tener en cuenta que ya hemos echo pruebas sobre esos componentes(o las iriamos a hacer),luego debo partir de la premisa de que funcionan correctamente.
+NOTA: esta es la primera vez que tenemos un componente al que shallowMount se le pudiera quedar corto y necesitemos de mount:
+
+import { shallowMount,mount } from "@vue/test-utils";
+
+
+TIP: pudiera parecer que crear un snapshot puede ser una prueba útil pero no lo es:
+  test("should match with its snapshot", () => {
+    expect(wrapper.html()).toMatchInlineSnapshot(
+      `<h1>Espere por favor...</h1>`
+    );
+  });
+
+Obviamente si le pasaramos un pokemon y entrara por el v-else si que tendría sentido la snapshot
+
+Bien,una prueba que si es interesante es comprobar que en el mounted se llama al mixPokemonArray.Fijate que hay que espiar el objeto PokemonPage.methods <- pero en su propiedad methods:
+
+test("should call mixPokemonArray method when mounted", () => {
+    const mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    expect(mixPokemonSpy).toHaveBeenCalledTimes(1)    
+  });
+
+  IMPORTANTE: todo espia debe ser definido antes de montar el componente.Esta prueba va a fallar(crear si que crea el espia,pero ya se disparó todo en el componente).Es decir que antes de crear el wrapper hay que crear el espia,pues al crear el wrapper se dispara el mounted:
+
+   beforeEach(() => {
+    mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    wrapper = shallowMount(PokemonPage);
+    jest.clearAllMocks;
+  });
+
+La otra solución,y para que no cree un espia en cada test,lo cual la hace mejor solución es volver a llamar al shallowMount,que disparará el mounted,etc:
+
+ test("should call mixPokemonArray method when mounted", () => {
+    const mixPokemonSpy = jest.spyOn(PokemonPage.methods, "mixPokemonArray");
+    shallowMount(PokemonPage); <- remontamos el cmp
+    expect(mixPokemonSpy).toHaveBeenCalledTimes(1);
+  });
+
+  Ambas arreglan el problema,la segunda pudiera ser un poco más eficiente.
+  NOTA:además,si creo un espia por cada test puedo tener problemas,es recomendable la segunda opción,diria yo.
+  Todo esto es terriblemente interesante,asinto.
+  TIP: también se puede espiar al wrapper.vm,espiar a PokemonPage.methods 
+
+    VIDEO 110 SNAPSHOT CON DATA Y STUBS
+
+Ya hemos visto que el snapshot no tiene mucho sentido,sin embargo,si que lo tendría si pudieramos tener toda la información y pudieramos esperar a sacar ese snapshot.
+
+TIP: debo ser muy consciente de que puedo montar cuantas veces quiera el componente(es decir,que puedo llamar al shallowMount varias veces).Incluso puedo hacer unas pruebas con shallowMount y otras con montado profundo usando mount
+
+Volviendo al test,para entrar por el v-else tengo que tener un pokemon,pero no sólo eso,pues al entrar por el v-else se van a montar los otros dos componentes y necesitarian toda la data.Es decir que tengo que recrear todo lo que tengo en data,prácticamente,para que funcione todo bien.Perfectamente se puede hacer esto en Vue.
+TIP:fijate que no son props,es la data:
+
+    const wrapper = shallowMount(PokemonPage, {
+      data() {
+        return {
+          pokemonArr: mockPokemons,
+          pokemon: mockPokemons[1],
+          showPokemon: false,
+          showAnswer: false,
+          message: "",
+          hasSelected: false,
+        };
+      },
+    });
+
+*Si ahora le saco la snapshot veré esto:
+    expect(wrapper.html()).toMatchInlineSnapshot(`
+      <div>
+        <h1>¿Quién es este pokémon?</h1>
+        <pokemon-picture-stub pokemonid="2" showpokemon="false"></pokemon-picture-stub>
+        <pokemon-options-stub pokemons="[object Object],[object Object],[object Object],[object Object]" hasselected="false"></pokemon-options-stub>
+        <!--v-if-->
+      </div>
+    `);
+  });
+
+* ¿Pero que es ese <pokemon-picture-stub>?¿Y porqué falla la prueba?Esto es porque estamos usando shallowMount.ShallowMount no va a recrear los subcomponentes totalmente,sino que crea esa etiqueta que realmente no hace nada.
+Obviamente si uso mount se montarán los hijos,pero montarlos implicará que se disparen sus ciclos de vida,podría causar re-renderizados,etc,asi que hay que tener claro que mount es más costoso y no siempre es necesario
+
+Si usamos mount veriamos esto(ya no tenemos los stubs sino que renderiza los subcomponentes):
+
+   expect(wrapper.html()).toMatchInlineSnapshot(`
+      <div>
+        <h1>¿Quién es este pokémon?</h1>
+        <div class="pokemon-container"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/dream-world/2.svg" class="hidden-pokemon" alt="pokemon"></div>
+        <div class="options-container">
+          <ul>
+            <li>Bulbasaur</li>
+            <li>Ivysaur</li>
+            <li>Venusaur</li>
+            <li>Charmander</li>
+          </ul>
+        </div>
+        <!--v-if-->
+      </div>
+    `);
+
+Hasta donde sea posible se recomienda usar shallowMount,pero siempre que se necesite de los subcomponentes hay que usar mount
+TIP:incluso llamando a mount puedo volver a shallow:
+const wrapper = mount(ComplexComponent,{
+  shallow: true // <- ya no es un mount
+})
+
+VIDEO 111 TAREA. PRUEBA DE QUE LOS SUBCOMPONENTES EXISTAN
+
+TIP: la libreria provee el método findComponent para buscar subcomponentes en un cmp.Ojo,si los llamo sin usar el objeto de opciones  que hay que importar los subcomponentes también:
+
+import PokemonPicture from "@/components/PokemonPicture";
+
+  const PokemonPictureCmp = wrapper.findComponent(PokemonPicture)
+  expect(PokemonPictureCmp.exists()).toBe(true)
+  console.log(PokemonPictureCmp.props())
+
+  O también puedo no importarlo y usar
+  const PokemonPictureCmp = wrapper.findComponent({name: 'PokemonPicture'})
+  Ambas son correctas
+
+Fijate que FH lo hizo con shallowMount y buscando por la tag,despues comprobando con attributes,y que al usar mount estoy obligado a usar findComponent.
+Sin embargo,puedo usar findComponent con shallowMount también, y la prueba funciona igual.Parece la mejor opción,aunque claro que buscar por tags y despues sus attributes también es totalmente válida
+
+  const wrapper = mount(PokemonPage, {
+      data() {
+        return {
+          pokemonArr: mockPokemons,
+          pokemon: mockPokemons[1], //id 2
+          showPokemon: false,
+          showAnswer: false,
+          message: "",
+          hasSelected: false,
+        };
+      },
+    });
+    
+    // existen los subcomponentes
+    const PokemonPictureCmp = wrapper.findComponent(PokemonPicture);
+    const PokemonOptionsCmp = wrapper.findComponent(PokemonOptions);
+    expect(PokemonPictureCmp.exists()).toBe(true);
+    expect(PokemonOptionsCmp.exists()).toBe(true);
+    
+    // Picture reciba la prop pokemonId con valor correcto
+    expect(PokemonPictureCmp.props("pokemonId")).toBe(mockPokemons[1].id);
+
+    // Options debe tener la prop pokemons
+    expect(PokemonOptionsCmp.props("pokemons")).toBeDefined();
+    // assert extra
+    expect(PokemonOptionsCmp.props("pokemons")).toEqual(mockPokemons);
+
+IMPORTANTE: puede que no quiera dejar el espia con la funcionalidad intacta,dado que un espia es un mock puedo hacer que retorne cualquier cosa y asi no dispara la funcionalidad original.Además,en vez de usar jest.spyOn(object,methodName) puedo usar object[methodName] = jest.fn(). Ejemplo:
+
+const newGameSpy = jest.spyOn(PokemonPage.methods,'newGame')
+const newGameSpy = jest.spyOn(PokemonPage.methods,'newGame').mockImplementation(() => true)
+PokemonPage.methods["newGame"] = jest.fn();
+* recuerda que puedo hacer lo mismo usando wrapper.vm tras montar el cmp
+const newGameSpy = jest.spyOn(wrapper.vm,'newGame') <- tras el shallowMount
+wrapper.vm['newGame'] = jest.fn() <-obviamente tras estar definido wrapper.
+Muy interesante todo esto,asinto
+
+VIDEO 112 PRUEBAS EN LAS PROPIEDADES REACTIVAS DEL COMPONENTE
+
+Para realizar esto fijate que puedo llamar literalmente al método que quiera usando wrapper.vm.methodName:
+
+   const wrapper = mount(PokemonPage, {
+       data() {
+         return {
+           pokemonArr: mockPokemons,
+           pokemon: mockPokemons[1], //id 2
+           showPokemon: false,
+           showAnswer: false,
+           message: "",
+           hasSelected: false,
+         };
+       },
+     });
+    //  puedo llamar a un método mediante wrapper.vm.methodName()
+    wrapper.vm.checkAnswer(2); <- llamada física al método
+
+NOTA: cuando haga alguna modificación a alguna de las propiedades reactivas,y ese cambio deba hacer alguna modificación en el DOM(más bien sería un VirtualDOM,pues estamos en testing) recuerda que tengo que usar asincronia:
+ await wrapper.vm.checkAnswer(2); <-
+ expect(wrapper.find("h2").exists()).toBe(true);
+
+ Fijate que esto es extrapolable a cualquier framework.Usar await va a disparar cualquier watcher que tuviera,los ciclos de vida correspondientes,etc,por ello hay que esperar(porque cambia el DOM,recuerda).
+
+ IMPORTANTE:recuerda que en wrapper.vm tengo todas las propiedades reactivas que he creado:
+  await wrapper.vm.checkAnswer(2); //recuerda que el 2 va a coincidir
+  expect(wrapper.find("h2").exists()).toBe(true); <- este cambio en el DOM obliga a asincronia
+  expect(wrapper.vm.showPokemon).toBe(true) <- propiedad reactiva
+
+    SECCION 09 OPTIONS-API -RUTAS CON VUE ROUTER Y LIFECYCLES EN VUE
+
+Recordemos que el routing y el concepto de SPA va intrinsicamente ligado.Las aplicaciones de Angular,Vue o React suelen ser SPA que navegan (o simulan navegar) a otras rutas.Veremos el routing en Vue,queryParameters,segmentos de Url,... :
+ En esta sección aprenderemos profundamente a utilizar y configurar el Vue Router, el cual permite crear una navegación entre componentes, puntualmente veremos:
+
+1- Vue Router
+2- Navegación por:
+   Path
+   Nombre
+   Programáticamente
+   Estáticamente
+3- Guards
+   Síncronos
+   Asíncronos
+4- 404 Page
+5- Rutas hijas
+6- Diferentes diseños entre router views
+7- Argumentos por URL (Query parameters)
+8- Segmentos por URL
+9- Lifecycle hooks
+    Nota, con el Options API, luego hablaremos del composition API en otras secciones.
+    Llamar cada lifecycle hooks y los más comunes
+
+Es una sección grande en la cual quiero enfocarme en que dominemos bien el Vue Router para aplicaciones futuras
+
+    VIDEO 116 CONCEPTO DE SPA
+
+Ventajas:
+ Tras la carga inicial la experiencia es fluida y rápida
+ Menor estrés para el servidor
+ El caché puede reducir peticiones
+ Mejor experiencia de usuario(no full refresh)
+ Carga independiente de módulos(lazy load and child Routes)
+
+Recuerda que la principal diferencia entre una pagina web tradicional y una SPA es como se gestiona la navegación 
+
+Desventajas:
+ Es complicado implementar SEO(Search Engine Optimization).
+ Un cambio pequeño puede requerir un build completo(esto es muy subjetivo)
+ La carga inicial puede ser pesada(ligado a la ventaja 1)
+
+ 
+
+ Si voy a crear aplicaciones tipo e-commerce usar una SPA no es la mejor opción,pues los crawlers de Google no van a encontrar todo correctamente.Aqui salen a superficies soluciones como Nuxt,para crear el routing de forma que no sea penalizado por estos bots
+
+    VIDEO 117-118 INICIO PROYECTO Y CREACION PAGINAS NECESARIAS
+
+Empezamos una nueva app con 'vue create <app-name>'.Será una aplicación enfocada a ver el routing de Vue y sus lifecycles.
+NOTA: las paginas no son más que otros componentes realmente,solo que es un agrupador de otros componentes al que se le asigna una URL.Este agrupador ni siquiera tiene porque abarcar el 100% de la UI(ejemplo un dashboard).
+NOTA: FH recalca que es buena idea crear carpetas en base a modulos(autenticación,productos,etc...).Dentro de estos modulos crearé los mismos subfolders normalmente(components,services,helpers,router,store,...)De esta forma en esa carpeta components solo tengo componentes relacionados a productos,o services relacionados a productos,etc.
+
+Es una buena práctica llamar a un componente que representa una pagina con 'CmpPage.extension' es decir HomePage.vue o AboutPage.vue.
+Creamos pues un subfolder modules y un par de modules,en uno de ellos creo otro subfolder pages y tres paginas con una template mínima.
+Fijate que en Vue un componente lo único que necesita es de la tag <template></template>.El JS y el CSS son opcionales(sus tags),pero el HTML es obligatorio para considerarse componente en Vue.
+
+Agregar todo como un reducer va a ser bastante sencillo,habrá que crear reducers en los WorkSets y mandarlos al hijo(igual no hace falta declararlos en el padre y si en el store).Recuerda crear las acciones y las action creators:
+
+import { useReducer } from "react";
+const ACTIONS = {
+  TOGGLEWORKONE:'toggleWorkOne',
+  TOGGLEWORKTWO:'toggleWorkTwo',
+  TOGGLEWORKTHREE:'toggleWorkThree',
+}
+
+const reducer = (state,action) => {
+  switch(action.type){
+    case 'hasWorkOne':
+    return {
+      ...state,
+      hasWorkOne: action.payload
+    }
+  }
+  default:
+  return {...state}
+}
+
+En el JSX:
+const [state,dispatch] = useReducer(reducer,{
+  toggleWorkOne:false,
+  toggleWorkTwo:false,
+  toggleWorkThree:false,
+})
+* Recuerda no usar literales para el type en el dispatch,y que el trabajo en el reducer puede ser delegado a funciones,etc.Siempre programar bien,cual asinto
+<switch value={state.workSetOne.hasWorkOne} onChange={() => dispatch({type:ACTIONS.TOGGLEWORKONE,payload:e.target.value})>
+
+    VIDEO 119 CONFIGURACION MANUAL DEL ROUTER DE VUE
+
+Docu: https://router.vuejs.org/
+Podemos ver que el router está en la versión 4.Obviamente lo primero es instalarlo:
+>yarn add vue-router@4
+
+El primer paso es definir los componentes que harán de página(realmente ya tenemos echo esto):
+const Home = { template: HomePage } <- normalmente va a ser un componente importado
+const About = {template: '<div>About</div>} <- aunque puede usarse html,no llegaremos lejos asín -_-
+
+ El segundo paso es definir las rutas:
+const routes = [
+  { path: '/',component: Home },
+  { path: '/about',component: About },
+]
+
+El tercer paso es crear la instancia del router(VueRouter.createRouter({}) devuelve esa instancia):
+const router = VueRouter.createRouter({
+  history: VueRouter.createWebHashHistory(), tipo de historial a manejar(éste usa el #)
+  routes, <- las rutas del paso dos
+})
+* El tipo de historial con # (createWebHashHistory) ayuda a que tenga más compatibilidad la aplicación.Otra es el createWebMemoryHistory que hace que las rutas en el URL no se vean diferentes y todo lo maneja en memoria  
+
+El cuarto paso es usar esa instancia(en el main.js):
+const app = Vue.createApp({})
+app.use(router) <- es esta linea,asinto
+app.mount('#app')
+
+TIP:fijate que VueRouter es la libreria que acabamos de instalar y se pueden usar import modularizados.No tiene sentido usar VueRouter.createRouter pudiendo traerme sólo el método(el ejemplo de la docu es con una CDN y tiene que usar el objeto entero):
+
+import ListPage from "../modules/pokemon/ListPage.vue";
+import AboutPage from "../modules/pokemon/AboutPage.vue";
+import PokemonDetailPage from "../modules/pokemon/PokemonDetailPage.vue";
+import { createRouter,createWebHashHistory } from 'vue-router'; <- modularizar los imports
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: AboutPage },
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+];
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes: routes,
+});
+
+Y ya simplemente uso esa instancia de VueRouter:
+import { createApp } from "vue";
+import App from "./App.vue";
+import { router } from "./router/router";
+
+createApp(App).use(router).mount("#app");
+
+IMPORTANTISIMO: esto por si solo no hace nada,me falta el tipico <outlet /> de Angular o React  y que en Vue se llama <router-view />.De esta forma veré los componentes
+En donde quiera(en este ejemplo en el App.vue)
+<template>
+  <img alt="Vue logo" src="./assets/logo.png" />
+  <router-view></router-view>
+</template>
+
+VIDEO 120 NOT FOUND PAGE
+
+Si nuestra aplicación entra a una url que no existe ahora mismo sólo da un warning por consola.Esto es algo que debo controlar como desarrollador de software.En Vue de momento hay que usar una funcion 'pathMatch' que el VueRoute sabe entender(ojo con la sintaxis que es /:):
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: AboutPage },
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+  { path: "/:pathMatch(.*)*", component: <div>not found</div> },
+];
+
+* Fijate que puedo usar propiedades computadas en el reducer.Obviamente tendré que mandar {name:"",value:""} en el dispatch:
+export const formReducer = (state,action) => {
+  switch(action.type) {
+    case "CHANGE_INPUT":
+      return {
+        ...state,
+        [action.payload.name]: action.payload.value
+      }
+  }
+}
+VIDEO 121 LAZY LOADING DE PAGINAS
+
+La idea principal del lazy-load es que nosotros tengamos un bundle inicial más pequeños y que los demás componentes se carguen dinámicamente(y cuando sean necesarios).
+Dado que vamos a cargar un componente de forma perezosa no necesito el import,ya que ese import realiza la carga física del archivo en ese momento:
+
+// import AboutPage from "../modules/pokemon/pages/AboutPage"; <- éste ya sobraría
+import PokemonDetailPage from "../modules/pokemon/pages/PokemonDetailPage.vue";
+import NotFoundPage from "../modules/shared/pages/NotFoundPage.vue";
+
+import { createRouter, createWebHashHistory } from "vue-router";
+
+const routes = [
+  { path: "/", component: ListPage },
+  { path: "/about", component: () => import('./../modules/pokemon/pages/AboutPage') }, <- ojo que es una funcion ejecutada === (() =>)
+  { path: "/pokemon/:id", component: PokemonDetailPage },
+  { path: "/:pathMatch(.*)*", component: NotFoundPage },
+];
+
+NOTA: esto creará un file llamado 0.js(y asi sucesivamente 1.js, 2.js,etc).Dado que esta nomenclatura no nos aporta nada Webpack permite renombrar el chunk:
+
+const routes = [
+  {
+    path: "/",
+    component: () =>
+      import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+  },
+  {
+    path: "/about",
+    component: () =>
+      import(/*webpackChunkName: "AboutPageChunk"*/ "./../modules/pokemon/pages/AboutPage"),
+  },
+
+Fijate que si estoy con Vite no va a funcionar el renombrado del chunk
+
+    VIDEO 122 NAVEGAR ENTRE PAGINAS - ROUTERLINK
+
+ TIP: recuerda que puedo llamar al componente como quiera siempre que use una exportación por defecto:
+ import Navbar from "./modules/shared/components/Navbar";
+ Bien pudiera ser:
+ import Navbar2 from "./modules/shared/components/Navbar";
+
+ NOTA: incluso puedo hacer el lazy loading en el componente:
+ <script>
+// import Navbar from "./modules/shared/components/Navbar"; <- ya no me haría falta
+
+export default {
+  name: "App",
+  components: {
+    Navbar: () => import('./modules/shared/components/Navbar')
+  },
+};
+</script>
+* Sin embargo,esto funciona en el router porque es asincrono,pero el componente es síncrono.HAy que definir al componente como asíncrono.Esto lo conseguimos trayendonos un método wrapper de vue que envolverá al import:
+
+<script>
+import { defineAsyncComponent } from "vue";
+
+export default {
+  name: "App",
+  components: {
+    Navbar: defineAsyncComponent(() => import("./modules/shared/components/Navbar")),
+  },
+};
+</script>
+
+Obviamente la libreria vue-router estará usando esto entre bambalinas y no tenemos que hacerlo nosotros.Fuera del router tenemos que hacerlo manualmente
+Volviendo al objetivo del router,si usará anchor tags tendría muchos problemas(como tener que usar #):
+
+<template>
+  <div>
+    <a href="/">Pokemon List</a>
+    <a href="/#/pokemon/id">Pokemon Detail</a>
+    <a href="/#/about">About</a>
+  </div>
+</template>
+
+Obviamente hay que usar el link de la libreria vue-router,al que tengo acceso desde el momento que la instalé:
+
+VIDEO 123 ROUTER LINK ACTIVE - RUTA ACTIVA
+
+NOTA: fijate que al usar <style scoped /> vue lo que hace es agregar un atributo <data-v-hash>.Volviendo al objetivo del video,si inspecciono el Html podemos observar que el router de vue agrega las clases router-link-active y router-link-exact-active.Está última clase la podemos usar para dar estilos al anchor tag que haga match con la ruta actual:
+<style scoped>
+div {
+  padding: 0 30px;
+}
+div a {
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0 10px;
+}
+.router-link-exact-active {
+  color: #42b983;
+}
+</style>
+
+
+VIDEO 124 LIFECYCLES
+
+TIP: en el CompositionsAPi se les conoce como Hook inside setup(??).Realmente lo único que cambia es que en la Options API se llama 'mounted' y en la compositions se llama 'onMounted',más al estilo React.
+Un lifecycle hook no es más que un método que se va a disparar en cierto momento,por ejemplo beforeCreate me permite realizar algo antes incluso de que se cree el VDOM.Despues vendría el created,que se dispara justo cuando se haya creado todo,etc.Otros como beforeMount,beforeUpdate,mounted,updated también queda claro cuando se disparan.Vue también tiene ciclos de vida como beforeUnmount o unmounted,para cuando se desmonte un componente
+Todo esto lo puedo ver de forma genérica aqui: https://vuejs.org/guide/essentials/lifecycle.html#lifecycle-diagram
+Aqui información detallada según cilo de vida: https://vuejs.org/api/composition-api-lifecycle.html#onmounted
+También hay un catálogo por nombre en el PDF del curso. 
+Normalmente se usan unos pocos ciclos de vida(mounted,updated,unmounted,etc)
+
+VIDEO 125 DISPARAR CICLOS DE VIDA
+
+Vamos a disparar todos los lifecycle como ejemplo:
+
+<script>
+export default {
+  beforeCreate() { },
+  created() { },
+  beforeMount() { },
+  mounted() { },
+  beforeUpdate() { },
+  updated() { },
+  activated() { },
+  deactivated() { },
+  beforeMount() { },
+  unmounted(){} ,
+  errorCaptured: (err, vm, info) => { },
+  renderTracked(){},
+  renderTriggered(){},
+    
+}
+</script>
+
+NOTA: renderTriggered y renderTracked se disparan cuando sucede un cambio en el VDOM.Si el cambio de una propiedad reactiva no impacta en el DOM,sólo se dispararán beforeUpdate y updated(estas dos se disparan siempre)
+Obviamente muchos lifecycles ni siquiera deben de usarse,al final como siempre,es usar sentido común.
+
+VIDEO 126 SEGMENTOS DE UNA URL Y QUERYPARAMETERS
+
+La parte del segmento se suele usar para rescatar un id(producto/123),mientras que los queryParams suelen estar orientados(producto/123?costo=100).Se pueden ir concatenando con un ampersand (dominio/segmento?costo=100&rango=10).
+Hay varias tecnicas para rescatar el valor de un segmento de la url parametrizado(usaremos /pokemon/:id).La primera que vamos a ver es accediendo mediante this.$route($ es un objeto especial que me permite acceder a muchas cosas en Vue y es muy importante).
+
+En el componente PokemonById
+<script>
+export default {
+
+  created(){
+    console.log(this.$route)  <-this.$ es un objeto especial built-in de Vue
+  }
+
+}
+</script>
+
+{fullPath: '/pokemon/234', path: '/pokemon/234', query: {…}, hash: '', name: undefined, …}
+
+Ahora ya podria rescatar el id con un split,etc(aunque tengo una propiedad route.params para ni siquiera tener que usar un split).Fijate que el lifecycle mounted también me valdría,aunque el created nos vale igual.
+route.params => {id:"100"} <- ojo que el valor de route.params es un string,todo es un string cuando viaja por la URL
+
+Sabiendo todo esto podemos rescatarlo fácilmente.IMPORTANTE: fijate que la propiedad data en Vue no sólo me vale para rescatar las props de un componente padre,sino para "rescatar" valores del propio componente.Es decir,que vale para declarar la data que usará el componente,siendo la fuente de esa data cualquier cosa:
+
+<template>
+  <h1>Pokemon Detail Page <span>El id es {{this.id}}</span></h1>
+</template>
+
+<script>
+export default {
+  data(){
+    return {
+      id:null, <-fijate que el id viene de un lifecycle de este componente
+    }
+  },
+  created(){
+    const {id} = this.$route.params
+    console.log(id)
+    this.id=id;
+  }
+}
+</script>
+
+      VIDEO 127 RECIBIR PROPS POR URL
+
+Sin embargo,usar la propiedad data no nos permite poner ninguna validación a ese id,y sabemos que es requerido y es un number.Sería aún mejor usar la zona de props,pero nos encontramos con un problema,y es que no podemos hacer el this.id=id pues da un error de mutación de una prop:
+export default {
+  props:{
+    id:{
+      type: Number,
+      required:true
+    }
+  },
+  created(){
+    const {id} = this.$route.params
+    console.log(id)
+    // this.id=id; <-no se puede mutar una prop
+  }
+
+En este punto vemos como podemos rescatar el id de varias formas:
+En la template directamente
+<template>
+  <h1>El id es {{ this.$route.params.id}}</h1>
+</template>  
+
+En la data directamente,sin usar el lifecycle:
+export default{
+  data(){
+    return {
+      id: this.$route.params.id <-obviamente luego usaré {{id}} en la template
+    }
+  }
+}
+Pero no queremos hacer esto,queremos obligar al resto de desarrolladores a que venga un id por props.¿Como hacer esto?.La clave está en la declaración de la ruta,ya que también tiene acceso al this.$route:
+
+  {
+    path: "/pokemon/:id",
+    component: () => import( /*webpackChunkName: "PokemonDetailPageChunk"*/ "./../modules/pokemon/pages/PokemonDetailPage"),
+    props: (route) => {console.log(route)}
+  },
+Veremos que es lo mismo que imprime this.$route(luego tengo acceso a segmentos URL y a los queryParams).
+NOTA: para mandar por props algo tengo que retornarlo en esa callback que usa la propiedad props:
+
+NOTA:recuerda que cualquier objeto reactivo declarado en Vue,React,etc tiene un getter y un setter(en Vue se llaman Target y Handler) y que cualquier cambio sobre un objeto reactivo disparará ciclos de vida.
+
+TIP: sabiendo que el return de las props en la declaración de una ruta va a llegar al componente puedo pasar lo que quiera.Sin embargo,sólo lo que también esté marcado como props en el componente será impreso como props,sino son atributos (this.$attrs):
+ 
+ props: (route) => {
+      return {
+        id: 100, <-esto lo veré como props
+        nombre:'Fernando', <-esto va como attributes
+        apellido:'Herrera'
+      }
+    }
+Obviamente no nos interesa pasar nada en duro.
+
+ {
+    path: "/pokemon/:id",
+    component: () => import( /*webpackChunkName: "PokemonDetailPageChunk"*/ "./../modules/pokemon/pages/PokemonDetailPage"),
+    props: (route) => {
+      return {
+        id: route.params.id 
+      }
+    }
+  },
+
+  NOTA: áun veremos un warning pues esperamos un numero y por naturaleza todo viene como string de una URL.Además,si mandamos un string por la ruta también va a salir el warning de la prop.Podemos comprobar esto en esa callback:
+  props: (route) => {
+      const id = Number(route.params.id);
+      return isNaN(id) ? { id: 1 } : { id: id };
+    },
+  },
+
+      VIDEO 128 PETICION HTTP Y REDIRECCIONES
+
+IMPORTANTE: ya no nos vale el <router-link to="/pokemon/12">Go to ...</router-link> pues tiene que ser algo dinámico.Es decir que tengo que usar un v-bind(por ser un atributo,recuerda).Segun la documentación tengo que usar:
+
+Si es un segmento(terminará siendo /:userId)
+<router-link :to="{params:{userId:'123'}}">Go to user</router-link>
+
+Si es un queryParam(terminará siendo /register?plan=private)
+<router-link :to="{path:'register',query:{plan:'private'}}">Register </router-link>
+
+NOTA:ojo que las comillas simples son obligatorias
+
+En cuanto al componente creamos un method que haga una petición con ese id y establecemos en la data el pokemon,pero fijate que llamamos al método en el created y el componente sólo se va a crear una vez.Tenemos que crear un watch(esto sería el tipico useEffect):
+ data() {
+    return {
+      pokemon: null,
+    };
+  },
+  created() {
+    // si bien hay gente que llama a una petición inicial en el mounted,la recomendación es en el created,ya que el componente estará montado y listo para su manipulación y reacción del mismo(el created va un poco despues del mounted pues)
+    this.getPokemon();
+  },
+  methods: {
+    async getPokemon() {
+      try {
+        const pokemon = await fetch(
+          `https://pokeapi.co/api/v2/pokemon/${this.id}`
+        ).then((r) => r.json());
+        console.log(pokemon);
+        this.pokemon = pokemon;
+      } catch (e) {
+        // no quiero imprimir el error,dado que no hay un pokemon el usuario no tiene nada que hacer aqui y le vamos a redireccionar
+        this.$router.push("/about");
+      }
+    },
+  },
+  watch: {
+    id() {  <- esto es igual que useEffect( () => this.getPokemon(),[id])
+      this.getPokemon();
+    },
+  },
+
+  Fijate cómo hemos redireccionado con this.$router.push.No confundir con el anterior que era this.$route y es para las rutas,el de ahora es el propio router que obviamente permite redirigir y controlar el historial
+
+  Fijate que tuve que darles el mismo name a la ruta y al router-link para quitar el warning:
+  
+   <router-link :to="{ name: 'Pokemon', params: { id: 2 } }">Pokemon Detail</router-link>
+     
+  { path: "/pokemon/:id", name:"Pokemon", component: () =>
+
+  NOTA:dado que estamos usando el name para enlazarlos puedo cambiar el path de la ruta a /pokemons/ o /pokes por ejemplo,que lo importante es que coincidan los dos name 'Pokemon'.Trabajar con names es una ventaja en este sentido.En resumen,el nombre es menos volátil que el path
+
+        VIDEO 129 REDIRECCION DESDE EL ROUTER
+
+  Hay muchas ocasiones en las que quiera redireccionar ya desde el archivo de rutas inicial(como por ejemplo redirigir a la 404Page).Es realmente sencillo,solo hay que usar la propiedad 'redirect':
+   {
+    path: "/",
+    redirect: "/home", <- 
+  },
+  {
+    path: "/home",
+    name: "home",
+    component: () =>
+      import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+  },
+  {
+    path: "/about",
+    name: "about",
+
+Y dado que ya hemos visto que es buena idea trabajar con nombres de rutas para abstraernos del naming del path,le ponemos nombre ya a cada una y usamos el router-link por nombre de ruta(lo cual obliga a usar v-binds de atributos,claro)
+
+  <router-link :to="{ name: 'home' }">Pokemon List</router-link>
+  <router-link :to="{ name: 'Pokemon', params: { id: 2 } }">Pokemon Detail</router-link>
+  <router-link :to="{ name: 'about' }">About</router-link>
+
+TIP:de igual forma puedo redirigir mediante $router por name y no por path:
+this.$router.push({ name: 'routename' }) 
+Genial,todo bien claro hasta ahora
+
+        VIDEO 130 ROUTER-LINK PERSONALIZADO
+
+Queremos tener mayor control sobre los router-link anteriores.Vamos a crearnos un componente para abstraer un Link:
+
+<template>
+  <a v-if="isExternalLink" :href="link.to" target="_blank"> {{ link.name }} </a>
+  <router-link v-else :to="link.to" v-slot="{ href, isActive }">
+    <a :class="isActive ? 'is-active' : 'normal-link'" :href="href"> {{ link.name }} </a>
+  </router-link>
+</template>
+
+<script>
+export default {
+  props: {
+    link: {
+      type: Object,
+      required: true,
+    },
+  },
+  computed: {
+    isExternalLink() {
+      return this.link.to.startsWith("http");
+    },
+  },
+};
+</script>
+
+<style scoped>
+.is-active {
+  color: #42b983;
+}
+.normal-link {
+  color: #c6c5c5;
+}
+</style>
+
+Fijate en el v-if + v-else y en v-slot,del que sacamos varias cosas(profundizar más sobre v-slot).Fijate que fácil es pasar clases condicionalmente en Vue con un simple v-bind.Realmente es muy sencillo crear bindings en Vue a métodos,props,clases,etc.Aqui si lo hace bien Vue.
+
+En el navbar,que usará este custom cmp con un v-for simplemente creamos una data acorde a lo que necesitamos,haciendo match con el name:
+
+  <CustomLink v-for="link in links" :key="link.to" :link="link" />
+  </div>
+</template>
+
+<script>
+import { defineAsyncComponent } from "vue";
+export default {
+  data(){
+    return {
+      links:[
+        { to: '/home',name:'Pokemons' },
+        { to: '/pokemon/50',name:'Por ID' },
+        { to: '/about',name:'About' },
+        { to: 'https://google.com',name:'Google' },
+        ]
+    }
+  },
+  Recuerda que en Vue tmb se necesita una unique key para que no se lie el framework en las iteraciones
+
+V-SLOT: sabemos que los slots sirven para insertar contenido HTML dentro de los componentes.También sabemos que <router-link /> tiene acceso a varias propiedades que puedo extraer(fijate que hay que saber esto de antemano).Sabiendo pues que de ese componente puedo extraerle el isActive o el href las puedo sacar y mandarlas a un elemento interno(tiene pinta de ser muy usado en forms)
+Docu: https://v3.router.vuejs.org/api/#v-slot-api-3-1-0
+Para poder usar el v-slot el componente debe exponer algo(objetos,propiedades,métodos,etc)
+Muy interesante este video
+
+      VIDEO 131 MULTIPLES ROUTER-VIEW => RUTAS HIJAS
+
+Usar rutas hijas permite tener una aplicación con diseños estructurales totalmente diferentes entre pantallas.La idea es crear layouts(un componente que internamente tiene otro router).Basicamente,son routers anidados.Vue hace muy sencillo esto.
+
+NOTA:fijate que ya tengo un router general en App.vue:
+<template>
+  <Navbar />
+  <img alt="Vue logo" src="./assets/logo.png" />
+  <router-view></router-view>
+</template>
+
+Es decir,que tendré que usar otro router-view en cada ruta que vaya a tener subrutas.
+TIP: un router-view lo que esta diciendo es que ese componente puede tener rutas hijas,y también dice donde debe renderizarlas.Ejemplo:
+La ruta principal /pokemon devuelve esta template:
+<template>
+  <div class="pokemon-layout">
+    <h1>Pokemon Layout</h1>
+    <router-view></router-view>
+  </div>
+</template>
+
+Es en ese router-view donde se renderizarán las posibles subrutas de /pokemon.Bien,y para declarar rutas hijas es tán fácil como usar la propiedad children:
+
+const mainRoutes: [
+{
+    path: "/pokemon", <- ruta principal
+    name: "pokemon",
+    component: () => import(/*webpackChunkName: "PokemonLayout"*/ "./../modules/pokemon/layouts/PokemonLayout"),
+    children: [
+      {
+        path: "home", <- ruta hija( será pues /pokemon/home)
+        name: "home",
+        component: () => import(/*webpackChunkName: "ListPageChunk"*/ "./../modules/pokemon/pages/ListPage"),
+      },
+      {
+        path: "about",
+        name: "about",
+        component: () => import(/*webpackChunkName: "AboutPageChunk"*/ "./../modules/pokemon/pages/AboutPage"),
+      },
+      {
+        path:'',
+        redirect: {name:'home'}
+      }
+
+Ojo en las rutas hijas que no llevan el '/' inicial o se convierten en rutas absolutas.Por último,se recomienda redireccionar mediante el name de nuevo por la volatilidad de los path
+
+    VIDEO 132 SEGUNDO LAYOUT
+
+Creamos en el otro modulo que teniamos un layout con un router-view y dos componentes.Fijate que en este punto dondé estén fisicamente los archivos es irrelevante(excepto por los imports,claro),lo único que importa es la configuración en la programación:
+ 
+  {
+    path: "/dbz",
+    name: "dbz",
+    component: () =>
+      import(
+        /*webpackChunkName: "DBZLayout"*/ "./../modules/dragonball/layouts/DragonBallLayout"
+      ),
+    children: [
+      {
+        path: "characters",
+        name: "dbz-characters",
+        component: () =>
+          import(
+            /*webpackChunkName: "DBZCharacters"*/ "./../modules/dragonball/pages/Characters"
+          ),
+      },
+      {
+        path: "about",
+        name: "dbz-about",
+        component: () =>
+          import(/*webpackChunkName: "DBZAbout"*/ "./../modules/dragonball/pages/About"),
+      },
+      {
+        path: "",
+        redirect: { name: "dbz-characters" },
+      },
+    ],
+  },
+
+    VIDEO 133 ARREGLAR LA NAVBAR
+
+TIP:fijate que el link.to coincide y las rutas se ponen activas,cambiando la clase
+En este video vamos a hacer un refactor para coger las rutas por name(fijate que al final salen varios warnings porque el customLink trata de leer el params.id de cualquier ruta.Hay que cambiar esto también )
+
+<script>
+import { defineAsyncComponent } from "vue";
+export default {
+  data(){
+    return {
+      links:[
+        { to: 'pokemon-home',name:'Pokemons' },
+        { to: 'pokemon-id',name:'Por ID',id: 1 },
+        { to: 'pokemon-about',name:'About' },
+
+        { to: 'dbz-characters',name:'Personajes DBZ' },
+        { to: 'dbz-about',name:'DBZ About' },
+
+        { to: 'https://google.com',name:'Google' },
+        ]
+    }
+  },
+  components: {
+    CustomLink: defineAsyncComponent(() => import("./CustomLink.vue")),
+  },
+};
+
+En el CustomLink no podemos devolver lo mismo en el v-bind:to del v-else:
+
+ route() {
+      return this.link.id === undefined
+        ? { name: this.link.to }
+        : { name: this.link.to, params: { id: this.link.id } };
+    },
+
+En la template:
+  <router-link
+    v-else
+    :to="route"
+    v-slot="{ isActive }"
+  >
+Con este :to con la propiedad computada resolvemos el acceso condicional a params.id segun ruta,quitando el warning.
+
+
+      VIDEO 134 GUARDS EN VUE - PROTECCION DE RUTAS
+
+Hay otro punto importantisimo que es la protección de rutas.Usualmente el guard más comun es estar autenticado o no,pero de momento vamos a crear un guard que nos deje entrar de manera aleatoria simplemente.
+
+Empecemos también con un guard global(se ejecutará en cualquier ruta).Para ello simplemente usamos el método beforeEach en el objeto router:
+
+export const router = createRouter({
+  history: createWebHashHistory(),
+  routes: routes,
+});
+// Guard Global sincrono
+router.beforeEach((to,from,next) => {
+  console.log(to,from,next)
+})
+export default router
+
+Obviamente to es hacia donde se va y from de donde se viene.La funcion next es algo que puedo llamar como última acción().Fijate aqui que si no llamo a next() no hago la redirección normal,es el bloqueo de toda la vida(es decir,que implementar un guard sin el next va a bloquear el enrutamiento)
+Obviamente ya solo sería llamar a next según lo que queramos:
+router.beforeEach((to, from, next) => {
+  console.log({ to }, { from }, { next });
+  const rnd = Math.random().toFixed(2) * 100;
+  if(rnd > 50){
+    console.log('autenticado');
+    next()
+  }else {
+    console.log(rnd,'bloqueado por el beforeEach Guard')
+    next({name:'pokemon-home'})
+  }
+});
+
+TIP: fijate que el next tiene hast 5 signatures y me permite llamarlo redireccionando.
+TIP: al final lo que haremos es sacar esta función al típico folders de guards
+
+    VIDEO 135 GUARD ASINCRONO
+
+Hagamos lo mismo,pero asincrono.Realmente solo hay que poner el async y crear una Promise:
+
+const canAccess = () => {
+  return new Promise((resolve, reject) => {
+    const rnd = Math.random().toFixed(2) * 100;
+    if (rnd > 50) {
+      console.log("autenticado mediante async canAccess");
+      resolve(true);
+    } else {
+      console.log(rnd, "bloqueado por el beforeEach Guard");
+      resolve(false);
+      // next({name:'pokemon-home'})
+    }
+  });
+};
+// GUARD GLOBAL ASINCRONO
+router.beforeEach(async (to, from, next) => {
+  const authorized = await canAccess();
+  authorized ? next() : next({ name: "pokemon-home" });
+});
+
+Obviamente,un guard global no se usa mucho,normalmente hay mezcla de rutas publicas y privadas o incluso si no lo hubiera habra privadas segun rol,etc.
+Casi siempre vamos a usar guard especificos para una ruta/conjunto de rutas
+
+      VIDEO 136 GUARD ESPECIFICO PARA UNA RUTA O CONJUNTO DE RUTAS
+
+Para crear un guard solo para un determinado grupo de rutas o inclusive una única ruta Vue(más concretamente el router de Vue) nos proporciona esta nueva propiedad beforeEnter,la cual permite declarar un arreglo de Guards:
+
+  // child router Two
+  {
+    path: "/dbz",
+    name: "dbz",
+    beforeEnter: [isAuthenticatedGuard],
+    component: () =>
+
+Obviamente es una vil copia del canAccess de Angular,bla bla bla.
+NOTA: fijate que poner el Guard en la ruta padre propagará ese Guard a las hijas,no pudiendo entrar a ninguna que empieze por /dbz => (/dbz/**/*)
+
+* Ese Guard lo meto en el folder guards,etc(es un simple js)
+const isAuthenticatedGuard = async (to, from, next) => {
+  return new Promise(() => {
+    const random = Math.random().toFixed(2) * 100;
+    if (random > 50) {
+      console.log("autenticado mediante guard de ruta");
+      next();
+    } else {
+      console.log(random, "no autenticao,bacalao");
+      next({ name: "pokemon-home" });
+    }
+  });
+};
+
+Fijate que no tuve que pasarle ni resolve ni reject al new Promise.
+
