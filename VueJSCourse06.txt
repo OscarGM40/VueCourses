@@ -1,3 +1,143 @@
         SECCION 18 QUASAR
 
 La idea de Quasar es tener un montón de componentes ya estilizados.También tiene una API para rehacerlos.En esta sección aprenderemos los principales conceptos relacionados a Quasar, un framework basado en Vue.js que permite un desarrollo rápido gracias a un repertorio completo de componentes previamente estilizados.
+
+                VIDEO 303 CREANDO UN PROYECTO CON QUASAR
+
+Docu: https://quasar.dev/
+Quasar es un framework basado en Vue que sirve para crear aplicaciones web/de escritorio,etc.Hay varias formas de crear un proyecto con Quasar pero vamos a instalar de forma global su cli:
+>yarn global add @quasar/cli | npm i -g @quasar/cli
+
+Puedo comprobar con quasar --version si se hizo la instalación correctamente
+Despues creamos el proyecto con 'yarn create quasar' y ojo,para levantar el proyecto es con 'quasar dev'.
+
+                VIDEO 304 EXPLICACION DE LOS ARCHIVOS DE UN PROYECTO CON QUASAR
+
+El primer directorio es el '.quasar'.No hay que tocar ninguno de los js que tiene dentro(ya lo pone que no hay que editar).Son archivos autogenerados cada vez que haga un build o un start,asi que no tiene sentido tocarlos ya que se autogeneraran de nuevo.Deben ser ignorados en el .gitignore
+El segundo directorio es el '.vscode'.De nuevo no hace falta tocar nada
+El tercer directorio es el node_modules.Su nombre lo dice todo.Aqui se encuentran todos los modulos necesarios para el desarrollo,compilacion,despliegue y testeo de la aplicación
+El siguiente directorio,la carpeta public es una zona donde puedo dejar recursos que no quiera que sean compilados o manipulados y me van a servir en esa aplicación(imagenes,videos,iconos,svgs...)
+El src lo dejamos para el siguiente video.
+El archivo .editorconfig son configuraciones del editor
+Despues viene el .eslintignore para definir archivos que ignore el linter y el .eslintrc.js para configurar ese linter
+El .gitignore para ignorar archivos a subir a GitHub
+El .postcssrc.js es otro archivo de configuracion para el compilador de css
+El babel.config.js de nuevo configurará el Babel
+El jsconfig.json permite configurar cosas como poner alias a los paths(fijate que viene con unos cuantos)
+En el package.json se encuentran las dependencias que está usando el proyecto,asi como los scripts y otras configuraciones del proyecto.Fijate que no ha venido con un comando para arrancar la app,pero sabiendo que arranca con quasar dev podemos crearlo ya("start":"quasar dev")
+El archivo quasar.config.js permite realizar modificaciones del framework.Se usa bastante
+El README.md permite documentar la app y el yarn.lock o package-lock para ahondar en las dependencias del proyecto.Quasar recomienda NO ignorarlo.Jamás se deberia modificar este archivo manualmente.
+
+                VIDEO 305 EXPLICACION DEL DIRECTORIO SRC EN UNA APP DE QUASAR
+
+NOTA: Vuex ha dejado de tener soporte,ahora mismo está deprecated solo,asi que podemos usarlo aún.Se recomienda Pina como gestor de estado.
+
+En src/assets tenemos assets que pueden ser modificados(a diferencia de la carpeta public) en la compilación o despliegue.También puede ser que el framework(o quasar,o webpack,next,etc) termine añadiendo un hash al nombre del estático para prevenir el cacheo.En resumen,se pueden modificar
+
+El directorio src/boot es tipico de una app de Quasar.De momento tiene un axios.js con una configuracion global de axios,aunque viene a medias y habrá que configurarla bien
+
+La carpeta src/components viene con un componente.Se recomienda que modularizemos la app,asi que este directorio deberia moverlo en una app real.Fijate que las tags son <q-item></q-item> o <q-item-section></q-item-section> ya que estamos en Quasar.
+NOTA: en Vue se puede hacer como en React y :caption="true" podemos simplificarlo como caption.Asi pues,en <q-item-label caption></q-item-label> debo interpretar ese caption como un boolean a true.
+Fijate tmb que están usando defineComponente en vez de defineAsyncComponent
+
+La carpeta src/css viene con estilos ya establecidos para el starter.En el archivo app.css debo configurar cualquier estilo global,ya que lo está importando el App.vue,que es el punto de entrada de la app.
+
+El directorio src/layouts permite definir cascarones(herencia entre Html).En este archivo Quasar está exponiendo un objeto global llamado $q donde puedo consultar muchas cosas(como la version de Electron,medidas de la ventana,etc)
+
+El directorio src/pages permite construir las paginas/rutas de la app.La pagina para el Index la puedo tomar de plantilla para crear las sucesivas paginas de la app(fijate en el <q-page></q-page>)
+
+El directorio src/router permite declarar las rutas de la app.Fijate que parece bastante bueno el sistema de rutas de Quasar:
+const routes = [
+  {
+    path: '/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      { path: '', component: () => import('pages/IndexPage.vue') }
+    ]
+  },
+  {
+    path: '/:catchAll(.*)*',
+    component: () => import('pages/ErrorNotFound.vue')
+  }
+]
+
+export default routes
+En el src/router/index.js está configurado el modo de rutas(createMemoryRouter),etc.
+En el src/store tengo un modulo de ejemplo con el state,actions,etc y un archivo index.js con un store global semi-configurado,que NO deberia usar pues deberia usar stores modularizados(slices).Fijate que me dejan un cascaron que puedo ir copiando y pegando,es lo mismo que hicimos en la seccion correspondiente
+Por último en esta zona hay un file en src/store llamado store-flag.d.ts para definiciones de typescript.Supongo que del store.
+
+
+Despues tenemos el App.vue es el punto de entrada de la app (src/App.vue).Solo tiene el router-view:
+Y a la misma altura tenemos el src/index.template.html para poder integrar CDNS o realizar otras configuraciones al html.Es el html que se tomará como base para el index.html resultante de hacer el build de la aplicación.Genial todo.
+
+<template>
+  <router-view />
+</template>
+
+<script>
+import { defineComponent } from 'vue'
+
+export default defineComponent({
+  name: 'App'
+})
+</script>
+
+                VIDEO 306 CAMBIAR LA ICONOGRAFIA DE LA APLICACION
+
+
+Docu: https://quasar.dev/options/installing-icon-libraries
+Honestamente los iconos de font-awesome del starter se sienten viejos ya.Quasar da soporte por defecto ya a varias librerias(Material icons, Bootstrap Icons, Font Awesome).Son iconos vectorizados ya listos para ser usados
+
+Simplemente hay que ir al archivo quasar.config.js y añadir la lib en extras:
+-> extras: ["material-icons"]
+En nuestro caso realmente no queremos la de material-icons,sino la de line-icons
+
+Ya no se llamarán de la misma forma:
+
+const linksList = [
+  {
+    title: 'Docs',
+    caption: 'quasar.dev',
+    icon: 'school', <- "las la-school" etc
+    link: 'https://quasar.dev'
+  },
+  {
+    title: 'Github',
+    caption: 'github.com/quasarframework',
+    icon: 'code',
+    link: 'https://github.com/quasarframework'
+  },
+
+
+                VIDEO 307 CREAR PAGINAS Y RUTAS EN QUASAR
+
+Simplemente creamos en el folder pages las paginas(realmente esto es una convención,lo importante es la definicion de las rutas):
+<template>
+  <q-page class="flex">
+    <h1>Flex</h1>
+  </q-page>
+</template>
+
+<script>
+import { defineComponent } from "vue";
+
+export default defineComponent({
+  name: "FlexPage",
+});
+</script>
+
+Y simplemente declaro una ruta para el import de ese componente:
+const routes = [
+  {
+    path: "/",
+    component: () => import("layouts/MainLayout.vue"),
+    children: [
+      { path: "", component: () => import("pages/IndexPage.vue") },
+      { path: "typography", name: "typography", component: () => import("pages/Typography.vue"), },
+      { path: "flex", name: "flex", component: () => import("pages/Flex.vue") },
+    ],
+  },
+
+  Sin embargo fijate que no va bien la navegación por el '#' que esta en cada ruta.Hay que usar otro tipo de navegación.
+
+  VIDEO 308 USANDO LA NAVEGACION DINAMICA EN QUASASR
