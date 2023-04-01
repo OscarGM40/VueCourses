@@ -141,3 +141,227 @@ const routes = [
   Sin embargo fijate que no va bien la navegación por el '#' que esta en cada ruta.Hay que usar otro tipo de navegación.
 
   VIDEO 308 USANDO LA NAVEGACION DINAMICA EN QUASASR
+
+NOTA: Vue tiene algo muy parecido a mandar todas las props en React(props => <Component {...props}) pero aqui es con un v-bind="object-to-send".Ejemplo:
+
+<EssentialLink
+  v-for="link in essentialLinks"
+  :key="link.title"
+  v-bind="link" <- le mandamos todo el link
+
+Dado que el link era un objeto que luce asi:
+{
+  title:string,
+  caption:string,
+  icon:string,
+  link:string
+}
+Podemos ver que estamos mandando 4 propiedades(ojo que es como un {...props,estamos esparciendo las props})
+Asi pues llegarán 4 properties al componente que podemos rescatar:
+  props: {
+    title: {
+      type: String,
+      required: true
+    },
+
+    caption: {
+      type: String,
+      default: ''
+    },
+
+    link: {
+      type: String,
+      default: '#'
+    },
+
+    icon: {
+      type: String,
+      default: ''
+    }
+  },  
+
+IMPORTANTE: en el composition API en el método setup tengo un primer argumento opcional que recibe las props:
+setup(props){
+  console.log(props)
+}
+
+NOTA: fijate que en la impresion por consola veo que hay un Handler y un Target.Recuerda que esto simplemente significa que es un objeto reactivo controlado por el framework.Fijate tmb que no puedo desestructurar ese argumento ya que perderia esta reactividad
+
+Bien,ya sabiendo esto simplemente tenemos que cambiar el 
+  <q-item
+    clickable
+    tag="a"
+    @click="navigateTo"
+  >
+y agregarle esa funcion que navegará a props.link si es una ruta interna o a una ruta externa si el link empieza por http:
+  setup(props){
+    const router = useRouter();    
+
+    return {
+      navigateTo(){
+        if(props.link.startsWith('http')){
+          window.open(props.link,'_blank')
+        }else{
+          router.push({name: props.link})
+        }
+      }
+    }
+  }
+Interesante
+
+      VIDEO 309 CAMBIAR TYPOGRAPHY
+
+Docu: https://quasar.dev/style/typography
+Quasar ya ofrece su tipografia.Tan solo es usar sus clases como text-h1 o text-subtitle2.Obviamente cubren casi todo como el tamaño de la fuente,la alineacion(text-left),estilo(text-uppercase) o peso de la fuente(text-weight-thin):
+
+ <q-page class="flex column q-pa-md">
+    <span class="text-h1 text-weight-thin">Headline 1</span>
+    <span class="text-h2">Headline 2</span>
+    <span class="text-h3">Headline 3</span>
+    <span class="text-h4 text-weight-medium">Headline 4</span>
+    <span class="text-h5">Headline 5</span>
+    <span class="text-h6 text-weight-bold">Headline 6</span>
+
+    <q-separator class="q-my-sm" />
+    <span class="text-subtitle1"> Subtitle 1</span>
+    <span class="text-subtitle2">Subtitle 2</span>
+
+Tambiñén se pueden añadir fuentes externas al proyecto,podemos usar cualquiera
+
+    VIDEO 310 REFACTORIZAR ENLACES A  OTRO ARCHIVO 
+
+Siempre hay que usar buenas prácticas.La definicion de las rutas deberia estar en su archivo propio.Simplemente sacamos ese array del componente MainLayout ya que no pinta nada hay.
+Por el mismo motivo este layout tampoco tendria que tener la lógica de abrir el drawer.De echo la vamos a sacar al store
+
+    VIDEO 311 CONTROLAR EL DRAWER DESDE VUEX
+
+ Aparte del store vamos a crear un hook tmb para controlar este Sidebar para asi aprender más.De esta forma cada vez que un componente quiera abrir el menu solo tendrá que llamar al hook.
+
+Asi pues nos creamos un initialState de momento asi:
+export default function(){
+  return {
+   isSideMenuOpen: true, 
+  }
+}
+y una mutation y un getter.Recuerda que ambos reciben el state como primer argumento y además es el state del modulo en el que estén:
+
+export function toggleSideMenu (state) {
+  return (state.isSideMenuOpen = !state.isSideMenuOpen);
+}
+
+Ya solo queda llamar al getter y la mutation.Recuerda que el getter tiene que ser a traves de la funcion computed que recibe otra funcion por argumento mientras que la mutation es una simple funcion:
+
+  setup() {
+    const store = useStore();
+
+    return {
+      sideMenuOpen: computed(() => store.getters['ui/getSideMenuOpen']),
+      toogleSideMenu: () => store.commit('ui/toggleSideMenu'), 
+      linksList,
+    };
+En este punto puedo ver que realmente esto no queda reutilizable.Si ahora otro componente quisiera abrir/cerrar el Sidebar tendria que volver a importar el composable function useStore,la funcion computed y volver a definir todo.Obviamente mejor creamos un hook
+Fijate tmb que de nuevo esté código no deberia estar atado al main layout,asi que el hook viene perfecto
+
+      VIDEO 311 USEUI - COMPOSABLE FUNCTION
+
+Simplemente hacemos un hook con lo que ya teniamos:
+
+export const useUI = () => {
+   const store = useStore();
+
+   return {
+     sideMenuOpen: computed(() => store.getters["ui/getSideMenuOpen"]),
+     toogleSideMenu: () => store.commit("ui/toggleSideMenu"),
+   };
+}
+
+En este punto solo hay que llamar al hook desde el componente que queramos:
+
+<q-btn 
+  color="primary"
+  class="q-mt-md"
+  label="Open Sidebar"
+  @click="toogleSideMenu" />
+  </q-page>
+</template>
+
+<script>
+import { useUI } from "../composables/useUi";
+import { defineComponent } from "vue";
+
+export default defineComponent({
+  name: "TypographyPage",
+  setup() {
+    const { toogleSideMenu } = useUI();
+    return {
+      toogleSideMenu,
+    };
+  },
+});
+</script>
+
+Fijate que el método setup va dentro del export default defineComponent
+
+    VIDEO 313 PROPIEDADES COMPUTADAS SET Y GET
+
+Si ponemos el ancho de pantalla en M podemos ver que la App está intentando cambiar el valor de la propiedad 'sideMenuOpen',pero es una propiedad computada de solo lectura.
+
+Concretamente lo está haciendo el componente drawer:
+  <q-drawer v-model="sideMenuOpen" show-if-above bordered>
+
+IMPORTANTE: esta sintaxis solo expone el getter:
+sideMenuOpen: computed(() => store.getters["ui/getSideMenuOpen"]),
+
+pero perfectamente podemos exponer el getter y el setter a la propiedad computada usando esta sintaxis:
+ computed({
+      get(){ return xx},
+      set(val){}
+    }),
+Ojo,el getter siempre tiene que retornar algo y el setter tiene acceso al valor en el primer argumento.Fijate que computed() ya no retorna una funcion sino un objeto,el cual tengo que desarrollar los métodos set y get:
+
+export const useUI = () => {
+  const store = useStore();
+  return{
+    sideMenuOpen: computed({
+      get(){ return store.getters["ui/getSideMenuOpen]},
+      set(val){ store.commit('ui/toogleSideMenu)}
+    })
+  }
+}
+La mutation que tenemos es justo lo que tiene que hacer el set asi que nos vale
+
+    VIDEO 314 SISTEMA DE FILAS Y COLUMNAS EN QUASAR
+
+En este punto siempre hay que tener la docu a mano (https://quasar.dev/layout/grid/introduction-to-flexbox). Fijate que Quasar hace wrap por defecto y hay que especificar que no lo queremos,al contrario de CSS.También se basa en una Grid de 12 columnas.
+
+NOTA: fijate que tengo un archivo quasar.variables.scss en la carpeta css con colores/variables por defecto sobre las que tengo vision en un proyecto de quasar(por ejemplo bg-primary hará referencia a la variable $primary de este file).Parece que ya no exponen este file,pero siguen estando las variables con el mismo nombre
+
+IMPORTANTE: declaro una row con la clase 'row' y una columna con la clase 'col'.Si no declaro un width(col-4 | col-6,por ejemplo) a la columna se ponen en auto y los anchos son equitativos
+
+<!-- si no le doy medida a las columnas las pondrá en col-auto -->
+    <div class="row q-mb-md">
+      <div class="col bg-primary">Col 1</div>
+      <div class="col bg-secondary">Col 2</div>
+      <div class="col bg-accent">Col 3</div>
+    </div>
+    <!-- por defecto una row tiene 12 columnas,si pongo dos de col-6 desaparecerá la tercera -->
+    <div class="row q-mb-md">
+      <div class="col bg-primary">Col 1</div>
+      <div class="col col-6 bg-secondary">Col 2</div>
+      <div class="col col-6 bg-accent">Col 3</div>
+    </div>
+    <!-- si me paso de columnas recuerda que tienen el display flex en wrap y hará salto -->
+    <div class="row q-mb-md">
+      <div class="col col-4 bg-primary">Col 1</div>
+      <div class="col col-4 bg-secondary">Col 2</div>
+      <div class="col col-6 bg-accent">Col 3</div>
+    </div>
+    <!-- siempre que tenga hueco en el eje X puedo alinear los items -->
+    <div class="row q-mb-md justify-center">
+      <div class="col col-4 bg-primary">Col 1</div>
+      <div class="col col-4 bg-secondary">Col 2</div>
+    </div>
+
+
+
+
