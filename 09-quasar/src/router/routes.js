@@ -3,13 +3,26 @@ const routes = [
     path: "/",
     component: () => import("layouts/MainLayout.vue"),
     children: [
-      { path: "", component: () => import("pages/IndexPage.vue") },
+      {
+        path: "",
+        name: "index",
+        component: () => import("pages/IndexPage.vue"),
+      },
       {
         path: "typography",
         name: "typography",
         component: () => import("pages/Typography.vue"),
       },
-      { path: "flex", name: "flex", component: () => import("pages/Flex.vue") },
+      {
+        path: "flex-layout",
+        name: "flex-layout",
+        component: () => import("pages/Flex.vue"),
+      },
+      {
+        path: "dialogs",
+        name: "dialogs",
+        component: () => import("pages/Dialogs.vue"),
+      },
     ],
   },
 
@@ -17,6 +30,7 @@ const routes = [
   // but you can also remove it
   {
     path: "/:catchAll(.*)*",
+    name: "error-page",
     component: () => import("pages/ErrorNotFound.vue"),
   },
 ];

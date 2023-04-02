@@ -362,6 +362,134 @@ IMPORTANTE: declaro una row con la clase 'row' y una columna con la clase 'col'.
       <div class="col col-4 bg-secondary">Col 2</div>
     </div>
 
+      VIDEO 315 CAMBIAR COLUMNAS DEPENDIENDO DE LA RESOLUCION
 
+Como toda app responsive llega un punto en que no sirve de nada tener 3 o 4 columnas,ya que la información no cabe hay más.Cuando sucede esto se tiene que reducir el numero de columnas y dejar que el usuario navege por la información haciendo scroll vertical(que es el comportamiento natural hoy en dia).
+NOTA: tengo la extension quasar-snippets en VSCode si voy a usar Quasar a menudo
 
+    <!-- Quasar es mobile first,debo ir ajustando contenido en base a sus breakpoints -->
+    <div class="row q-mb-md justify-center">
+      <div class="col col-12 col-md-6 col-lg-4 bg-primary">Col 1</div>
+      <div class="col col-12 col-md-6 col-lg-4 bg-secondary">Col 2</div>
+      <div class="col col-12 col-md-6 col-lg-4 bg-accent">Col 3</div>
+    </div>
+
+      VIDEO 316 INTRODUCCION A FLEXBOX
+
+TIP: Flexbox provee una manera eficiente de maquetar,alinear y distribuir espacio entre los items de un container,incluso cuando su tamaño es desconocio o dinámico(de hay su nombre flex):
+
+Si uso su clase row automáticamente me va a poner en flex todo,etc:
+
+   <!-- fijate que row ya pone en flex por defecto para que sea una fila(y aparte viene en wrap todo,recuerda).Dado que quieren que sea una fila tiene todo el sentido del mundo.Por defecto estarán en justify-start-->
+    <div class="row q-my-md">
+      <div class="square-box bg-primary">Caja 1</div>
+      <div class="square-box bg-secondary">Caja 2</div>
+      <div class="square-box bg-accent">Caja 3</div>
+    </div>
+    <q-separator spaced />
+    <!-- puedo cambiar las justificaciones del contenedor -->
+    <div class="row justify-between">
+      <div class="square-box bg-primary">Caja 1</div>
+      <div class="square-box bg-secondary">Caja 2</div>
+      <div class="square-box bg-accent">Caja 3</div>
+    </div>
+
+Si uso su clase column de nuevo me pondrá ciertos estilos:
+
+    <!-- fijate que la clase column de nuevo trae sus estilos, trae un display flex que por ello es un bloque todo y flex direction de column(asi que si quiero alinear en el eje X tengo que usar align items center)  -->
+    <div class="column bg-dark items-center">
+      <div class="square-box bg-primary">Caja 1</div>
+      <div class="square-box bg-secondary">Caja 2</div>
+      <div class="square-box bg-accent">Caja 3</div>
+    </div>
+
+Y obviamente se pueden hacer cosas más complejas:
+    <div class="column custom-height bg-warning items-center justify-between">
+      <div class="square-box bg-primary self-start">Caja 1</div>
+      <div class="square-box bg-secondary self-end">Caja 2</div>
+      <div class="square-box bg-accent">Caja 3</div>
+    </div>
+
+La parte del Flexbox funciona bastante bien en Quasar y ayuda a colocar la información como el desarrollador quiera.
+
+    VIDEO 317 DIALOGS Y ALERTAS
+
+Docu: https://quasar.dev/quasar-plugins/dialog
+Todos los plugins de Quasar trabajan o se usan de la misma manera.Para empezar a usar cualquier plugin hay que especificarlo en el archivo 'quasar.config' en el arreglo de plugins que hay en la propiedad framework: 
+
+return {
+  framework: {
+    plugins:['Dialog']
+  }
+}
+
+Y aparte de esto hay que usar el composable function que esa libreria expone y que retorna una instancia de toda la libreria parece:
+
+import { useQuasar } from "quasar";
+export default defineComponent({
+  name: "DialogPage",
+  setup() {
+    // en $q tengo todo el objeto Quasar,el hook lo instancia y retorna
+    const $q = useQuasar();
+    const promptValue = ref();
+
+ function prompt() {
+      $q.dialog({
+        title: "Promt",
+        message: "What is your name?",
+        position: "standard",
+        prompt: {
+          model: "",
+          type: "text", // <- input type text
+        },
+        cancel: true,
+        persistent: true,
+      })
+        .onOk((val) => {
+          promptValue.value = val;
+          console.log("OK");
+        })
+        .onCancel(() => {
+          console.log("Cancel");
+        })
+        .onDismiss(() => {
+          console.log("I am triggered on both OK and Cancel events");
+        });
+    }
+
+    return {
+      prompt,
+      promptValue,
+    };
+
+Y en el html:
+  <q-page class="q-pa-md">
+    <span class="text-h3">Dialogs</span>
+    <q-separator spaced />
+
+    <template v-if="promptValue">
+      <span class="text-h6">The value is: {{ promptValue }}</span>
+      <q-separator spaced />
+    </template>
+
+    <div class="q-pa-md q-gutter-sm">
+      <q-btn unelevated label="Prompt" color="primary" @click="prompt" />
+    </div>
+  </q-page>
+
+  Es simplemente ver su documentación,aunque es siempre lo mismo,activar el plugin en el quasar.config y traer la instancia de quasar con el useQuasar
+
+  NOTA: si estoy fuera de Vue puedo usar esta sintaxis:
+  import { Notify } from 'quasar';
+  si estoy en un archivo .vue:
+  import { useQuasar } from 'quasar';
+
+  setup(){
+    const $q = useQuasar();
+    $q.notify('Message')
+  }
+  Un composable function es considerado dentro de Vue,ojo,es como si estuviera en el setup.Fijate que esto es muy interesante.
+  SOLO CUANDO ESTE EN UN ARCHIVO DE JAVASCRIPT EL CUAL NO SE EJECUTA DENTRO DEL CICLO DE VIDA DE VUE TENGO QUE USAR LA SINTAXIS PRIMERA
+
+          VIDEO 318 INPUTS Y FORMULARIOS CON QUASAR
 
