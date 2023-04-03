@@ -23,4 +23,10 @@ export const linksList = [
     icon: "las la-window-minimize",
     link: "dialogs",
   },
+  {
+    title: "Forms Samples",
+    caption: "Inputs y validaciones en formularios con Quasar",
+    icon: "lab la-wpforms",
+    link: "forms",
+  },
 ];

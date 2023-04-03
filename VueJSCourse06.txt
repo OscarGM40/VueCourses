@@ -493,3 +493,201 @@ Y en el html:
 
           VIDEO 318 INPUTS Y FORMULARIOS CON QUASAR
 
+Docu: https://quasar.dev/vue-components/input
+
+Quasar expone varios componentes para trabajar con formularios.Se recomienda usar su wrapper <q-form></q-form> y despues usar <q-input></q-input> y sus homólogos para textareas, radios,checkboxes,etc.
+No son un plugin,no hay que especificar nada
+
+  <div class="row justify-center">
+      <div class="col-6">
+        <q-form @submit="onSubmit" @reset="onReset" class="q-gutter-md">
+          <q-input
+            filled
+            v-model="name"
+            label="Enter your name"
+            hint="name and surname fields"
+            lazy-rules
+            :rules="[(val) => (val && val.length > 0) || 'Please type something ']"
+          />
+
+          <q-input
+            filled
+            type="number"
+            v-model="age"
+            label="Enter your age"
+            lazy-rules
+            :rules="[
+              (val) => (val !== null && val !== '') || 'Please type your age',
+              (val) => (val > 0 && val < 100) || 'Please type a real age',
+            ]"
+          />
+          <q-toogle v-model="accept" label="I accept the license and terms" />
+
+          <div>
+            <q-btn label="Submit" type="submit" color="primary" />
+            <q-btn label="Reset" type="reset" color="primary" flat class="q-ml-sm" />
+          </div>
+        </q-form>
+      </div>
+    </div>
+
+La property filled hace referencia al background gris que tiene,el v-model al model ode datos.El hint es un texto informativo del campo(no confundir con el error).Lazy rules no checkea el campo hasta que pierda el foco
+
+TIP: Los icons de esta libreria pueden tener tres estilos(regular, solid or brand)
+Para cada estilo está su clase correspondiente(lar, las o lab)
+
+NOTA: para cambiar el icono de error del formulario en el quasar.config usar esta propiedad:
+framework: {
+  iconSet: 'line-awesome'
+}
+
+Otra forma es con el objeto global $q en cada archivo ya que la forma anterior no es demasiado flexible:
+$q.iconSet.field.error = "las la-exclamation-triangle";
+$q.iconSet.type.warning = 'mail'
+
+IMPORTANTE fijate como puedo retornar un true o un string,ya que si es true no pasa al string.Interesante:
+
+return (val === anotherVal) || 'Los valores no son iguales'
+
+Por último vamos a agregar notificaciones(son un plugin)
+
+NOTA: fijate que hemos estado usando export default defineComponent({}) y hay metemos todo.
+Esta forma se usa principalmente cuando necesitas Type safety, es decir cuando necesitas tipado estricto principalmente, o ayudas de linter. En JavaScript Vue es opcional, pero en TypeScript si es obligatorio.
+Como resumen parece una opcion valida para proyectos no muy grandes,aunque es totalmente opinionada en cuanto a los estilos.Seguramente no se use mucho en proyectos empresariales.Sea como sea hay tengo la docu que parece bastante buena y la opcion.
+
+      SECCION 19 MAPAS APP VUE-WITH-TYPESCRIPT
+
+Usaremos MapBox(es gratis hasta un cierto numero de peticiones)En esta sección quiero que aprendamos y reforcemos muchos de los temas aquí vistos en el curso y también aprendamos conceptos nuevos.
+
+1- TypeScript con Vue
+2- Mapas con Mapbox
+3- Marcadores
+4- Polylines
+5- CompositionAPI
+6- VueX + TypeScript
+7- Rutas y lugares
+
+Es una sección técnicamente complicada, no por el hecho de usar mapas o TypeScript, lo que lo hace difícil es su configuración inicial, luego todo es cuesta abajo.
+
+            VIDEO 326 INICIO DEL PROYECTO
+
+ 
+Creamos un proyecto con 'vue create project-name' (fijate que tuve que instalar con npm i -g @vue/cli).Elegimos typescript,la v3 etc.
+
+Fijate que ahora las etiquetas script tengo que usar la propiedad lang:
+<script lang="ts"></script>
+Y que hay que usar export default defineComponent({}) despues(aunque esto ya lo he visto)
+
+NOTA: si vamos al store/index.ts vemos que la implementación que hicieron de Vuex es demasiado simple(Quasar si lo hace bien,pero aqui te dan todo como en Javascript,debieron profundizar más)
+
+IMPORTANTE: recuerda que 1000 interfaces de Typescript equivalen a 0 lineas de código de Javascript
+
+  VIDEO 328 CONFIGURAR VUEX CON TS Y MODULO CASCARÓN REUTILIZABLE
+
+Lo primero es crear el store con un Tipo T compuesto de los subtipos de cada state de cada modulo:
+
+En el store/index.ts
+
+import { createStore } from 'vuex'
+
+import exampleModule from './module-template';
+import { ExampleStateInterface} from './module-template/state';
+
+export interface RootState {
+  example: ExampleStateInterface
+}
+export default createStore<RootState>({
+  modules: {
+    example: exampleModule
+  }
+})
+
+Despues en cada modulo/index.ts tengo que traerme todo a ese index de ese modulo y usar Module<T,RootState> para tipar el modulo,ojo:
+
+import { Module } from "vuex";
+import { RootState } from "..";
+
+import state, { ExampleStateInterface } from "./state";
+import actions from "./actions";
+import getters from "./getters";
+import mutations from "./mutations";
+
+const exampleModule: Module<ExampleStateInterface, RootState> = {
+  namespaced: true,
+  actions,
+  getters,
+  mutations,
+  state,
+};
+
+export default exampleModule;
+
+El state de cada modulo es muy parecido,solo que ahora tenemos que tipar el retorno de la funcion con una interfaz:
+
+En cada modulo/state.ts:
+
+export interface ExampleStateInterface {
+  prop: boolean;
+}
+
+function state(): ExampleStateInterface {
+  return {
+    prop: true,
+  };
+}
+
+export default state;
+
+Las actions de cada modulo,asi como los getters o mutations se traen un Record o Map de la libreria vuex para saber donde quedan con respecto al modulo y al RootState(igual que el Module<T,R>anterior):
+
+En cada modulo/actions.ts(fijate en el ActionTree<T,R>)
+
+import { ActionTree } from "vuex";
+import { ExampleStateInterface } from "./state";
+import { RootState } from "..";
+
+const actions: ActionTree<ExampleStateInterface, RootState> = {
+  someAction(/*{ commit }, payload  */) {
+    // a line to prevent linter errors
+  },
+};
+
+export default actions;
+
+Y lo mismo para los getters:
+En cada modulo/getters.ts(fijate en el GeterTree as Map)
+
+import { GetterTree } from "vuex";
+import { ExampleStateInterface } from "./state";
+import { RootState } from "..";
+
+const getters: GetterTree<ExampleStateInterface, RootState> = {
+  someGetter(/* state */) {
+    // return true;
+  },
+};
+
+export default getters;
+
+Sin embargo,las mutations si que parece que van con scope y no necesitan saber el RootState,solo usan MutationTree<T> donde T es la interfaz que tipa el state del modulo y no del store entero.Importante.
+
+En cada modulo/mutations.ts
+import { MutationTree } from "vuex";
+import { ExampleStateInterface } from "./state";
+
+const mutation: MutationTree<ExampleStateInterface> = {
+  someMutation(/* state: ExampleStateInterface */) {
+    // a line to prevent linter errors
+  },
+};
+
+export default mutation;
+
+Fijate que al exportar por defecto el modulo/index.ts puedo llamarlo despues en el store/index como quiera a cada modulo,etc.Muy interesante esto.Fijate tmb como hemos hecho todo con una interfaz para el RootState y otra por cada state de cada modulo.
+Recuerda que he hecho fork del gist
+
+    VIDEO 329 PRIMER MODULO EN TS - PLACES MODULE
+
+
+
+
