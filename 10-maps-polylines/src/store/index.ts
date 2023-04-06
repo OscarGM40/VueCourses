@@ -1,15 +1,18 @@
-import { createStore } from 'vuex'
-
-import exampleModule from './module-template';
-import { ExampleStateInterface} from './module-template/state';
+import { createStore } from "vuex";
+import geolocationModule from "./geolocation";
+import { GeolocationState } from "./geolocation/state";
+import { MapState } from "./map/state";
+import mapModule from "./map";
 
 // es el estado global de la app
 export interface RootState {
-  example: ExampleStateInterface
+  geolocation: GeolocationState;
+  map: MapState;
 }
 // le pasamos el RootType a este createStore
 export default createStore<RootState>({
   modules: {
-    example: exampleModule
-  }
-})
+    geolocation: geolocationModule,
+    map: mapModule,
+  },
+});

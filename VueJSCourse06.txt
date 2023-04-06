@@ -688,6 +688,514 @@ Recuerda que he hecho fork del gist
 
     VIDEO 329 PRIMER MODULO EN TS - PLACES MODULE
 
+Sustituimos el cascaron por el modulo places en todo el submodulo y el modulo root:
+
+export interface GeolocationState{
+  isLoading: boolean;
+  // MapBox trabaja con [lng,lat] y GoogleMaps con [lat,lng]
+  // debe ser opcional por que al principio no sabremos la location
+  userLocation?: [number, number]; //[lng,lat]
+}
+
+function state(): GeolocationState{
+  return {
+    isLoading: true,
+    // undefined para verlo siempre en el store
+    userLocation: undefined,
+  };
+}
+
+export default state;
+
+NOTA: dado que estamos ante una aplicacion que trabaja fuertemente con mapas podemos crear una primera guard clause para mostrar un fallback si el usuario no tiene la geolocalización activada en el browser:
+
+// el objeto navigator siempre existe(en realidad será window.navigator),si su propiedad geolocation es undefined mostramos esto,ni siquiera creamos la aplicación de Vue(importante el punto de llamada)
+if (navigator.geolocation === undefined) {
+  window.alert("Tu navegador no tiene activada la geolocalización");
+}
+createApp(App).use(store).use(router).mount("#app"); <- ni siquiera creamos la app de Vue,ojo
+
+      VIDEO 330 ACTION GET-INITIAL-LOCATION
+
+Lo primero vamos a crear un getter que nos diga si está la geolocation ready o no:
+  isUserLocationReady(state): boolean {
+    return !!state.userLocation;
+  },
+
+En cuanto a la action es muy sencilla,basta con usar el objeto navigator con navigator.geolocation.getCurrentPosition((position) => {},(error) => {}) que trae dos callbacks como argumento,la primera con la position,la segunda opcional con el error.
+Fijate que en el momento de llamar a la mutation realmente no la tenemos creada pero Vue no da ningun error.Quizas con el tiempo arreglen esto:
+
+const actions: ActionTree<PlacesState, RootState> = {
+  getInitialLocation({ commit }) {
+    // fijate que la sign dice que getCurrentPosition necesita una successCallback
+    navigator.geolocation.getCurrentPosition(
+      (position) => commit("setLngLat", position.coords),
+      (error) => {
+        console.error(error);
+        throw new Error(`Unable to get position due to error: ${error}`);
+      },
+    );
+  },
+};
+
+IMPORTANTE: son las mutations las que cambian el state en Vue.Fijate que mutation es un objeto,igual que getters o actions.Despues cada propiedad es una funcion:
+
+const mutation: MutationTree<PlacesState> = {
+ setLngLat(state:PlacesState,coords:[number,number]){
+  state.userLocation=coords;
+  state.isLoading=false;
+ } 
+}
+
+Faltará hacer el dispatch de la action en el primer momento que se pueda
+
+      VIDEO 331 COMPOSABLE USE-PLACES-STORE
+
+Fernando explica que realmente no es buena idea ir por cada componente e ir llamando al const store = useStore() en el setup de cada componente.
+
+Es bastante más limpio crear composable functions/hooks y abstraer la lógica.Fijate que el hook ni siquiera va a devolver nada,pero si que es importante que compruebe si ya hay un valor previo:
+
+export const usePlacesStore = () => {
+  const store = useStore<RootState>();
+
+  // no se yo si importa este lifecycle(no sería relativo al componente y ya se ha montado siempre??),nevermind,comprobamos si la location es undefined y si lo es llamamos a la action
+  onMounted(() => {
+    if(!store.getters['places/isUserLocationReady']){
+      store.dispatch('places/getInitialLocation');
+    }
+  })
+// parece que el return es obligatorio(realmente lo es ??)
+   return { }
+}
+
+Por último la funcion navigator.geolocation.getCurrentLocation((location:GeolocationCoordinates)) devuelve un objeto de ese tipo con varias propiedades,solo queremos la longitue y latitude,en ese orden por estar usando MapBox:
+
+const mutation: MutationTree<PlacesState> = {
+  setLngLat(state: PlacesState, coords: GeolocationCoordinates) {
+    
+    // coors es un objeto de tipo GeolocationCoordinates con varias propiedades,entre ellas latitude y longitued
+    // console.log({ coords });
+    
+    state.userLocation = [coords.longitude, coords.latitude];
+    state.isLoading = false;
+  }
+
+  NOTA: onMOunted es una callback que se dispara inmediatamente despues de que se monete el componente.No creo que importe en el hook
+
+    VIDEO 332 PREPARAR EL ESPACIO PARA COLOCAR EL MAPA
+
+Por primera vez vamos a separar el contenido del script a un file .ts y dejar la template y el css en el .vue.
+
+En el MapView.vue hay que importar el script asi:
+* La primera linea es el import del file TS( que será MapView.ts)
+<script lang="ts" src="./MapView"></script>
+<template>
+  <h1>Mapview </h1>
+</template>
+
+<style scoped>
+</style>
+
+NOTA: fijate que un componente de Vue es un file con extension .vue,esto es lo que hay que importar siempre:
+
+// fijate que tengo que apuntar al MapView.vue(que es un componente de Vue además) ya que si dejo solo MapView apunto al TS y eso no es nada.hay que apuntar al .vue
+import MapView from "@/components/mapview/MapView.vue";
+
+Y en el TS metemos el contenido del script(fijate que es el contenido,la etiqueta se quedó en el file .vue):
+
+import { defineComponent } from "vue";
+
+export default defineComponent({
+  name: "MapView",
+
+  setup() {
+    
+    return {
+      
+    };
+  },
+});
+
+Bastante interesante todo esto.Tras esto llamamos a este componente en el HomeView y retornamos lo necesario en el hook.Fijate que estamos usando computed properties para todo:
+
+  return {
+    // state
+    isLoading: computed(() => store.state.places.isLoading),
+    userLocation: computed(() => store.state.places.userLocation),
+    // getters
+    isUserLocationReady:computed<boolean>(() => store.getters['places/isUserLocationReady'])
+  };
+
+Fijate tmb que hubo que tipar a computed<T> para que sepa que es un bool
+
+      VIDEO 333 LOADING Y REFERENCIA AL CONTENEDOR DEL MAPA
+
+Exponemos el getter tmb por el hook y simplemente creamos dos divs,uno con el v-if y el otro con el v-else.El div con el map tenemos que ponerle una referencia al elemento html,a ese div.Para ello hay que crear una variable reactiva en el archivo controlador de TS y mandarla a la template,donde la asignamos:
+
+  setup() {
+    const mapElement = ref<HTMLDivElement>();
+    const { isLoading, userLocation,isUserLocationReady } = usePlacesStore();
+
+    return {
+      isLoading,
+      userLocation,
+      isUserLocationReady,
+      mapElement
+    };
+  },
+
+  En la template enlazada a ese controlador:
+  <div class="map-container" v-else ref="mapElement">
+
+IMPORTANTE: la referencia esta fallando porque el v-else no crea el div el primer render(crea el del v-if y en la segunda pasada el del v-else).Por esto va a fallar el referenciado,pues lo hace al principio; hay que usar un v-show para que cree los dos divs y no falle el referenciado
+
+  <div class="map-container" v-show="isUserLocationReady" ref="mapElement"> <- V-SHOW!!
+
+        VIDEO 334 MOSTRAR MAPA DE MAPBOX
+
+Web de registro: https://account.mapbox.com/
+Docu: https://docs.mapbox.com/mapbox-gl-js/guides/
+Si bien Google Maps el primer año es gratis ya desde el principio va a pedir una credit card,asi que vamos a la web de MapBox y nos registramos.
+Creo un token(con full permisos)
+
+Para instalarlo hay varias opciones,usaremos la libreria con npm.Los estilos tmb los podemos importar en cada file,pero usaremos la CDN asi siempre estarán listos(hay que instalar los definition types en TS):
+
+Despues es simplemente llamar mediante el objeto que exponen a la clase Map(new mapboxgl.Map) y creará un mapa en el container que le pasemos(fijate que pide un id pero la ref me vale).También tenemos la position del user en el store.
+
+  setup() {
+    const mapElement = ref<HTMLDivElement>();
+    const { isLoading, userLocation, isUserLocationReady } = usePlacesStore();
+
+    const initMap = () => {
+      // las refs pueden ser undefined,mejor protegerse
+      if (!mapElement.value || !userLocation.value) return;
+
+      // fijate que Mapboxgl.Map crea una instancia cada vez que se llame
+      const map = new Mapboxgl.Map({
+        container: mapElement.value, // container ID(LA REF ME VALE!!, es un ID!!)
+        style: "mapbox://styles/mapbox/streets-v12", // style URL
+        center: userLocation.value, // starting position [lng, lat]
+        zoom: 15, // starting zoom
+      });
+      return map;
+    };
+
+      onMounted(() => {
+      if (isUserLocationReady.value) return initMap();
+    });
+
+    return {
+      isLoading,
+      userLocation,
+      isUserLocationReady,
+      mapElement,
+      initMap
+    };
+  },
+
+Sin embargo no parece que cargue del todo bien el mapa
+
+  VIDEO 335 MOSTRAR MAPA TAN PRONTO TENGAMOS LA UBICACION DEL USUARIO
+
+En resumen lo que queremos es poner un watcher en el isUsrLocationReady.Fijate que obtener la geolocation es asincrono y el componente se monta antes casi siempre(ademas que era isUserLocationReady.value,pues isUserLocationReady siempre existe )
+
+NOTA: usa un <MapView v-if="isUserLocationReady" /> al llamar al componente es la solución fácil,pero un watcher hace al componente autosuficiente y nos enseña como implementar la solución difícil.
+
+TIP:fijate que podemos disparar el watch inmediatamente:
+watch(isUserLocationReady, (newVal) => {
+  console.log({ newVal });
+  // initMap();
+},{immediate:true});
+
+Pero esto es como un useEffect sin dependencias,solo se dispara una vez y estariamos en las mismas.
+watch(isUserLocationReady, (newVal) => {
+  if(newVal) initMap();
+});
+
+NOTA: si bien Fernando tuvo que hacer asincrona la function initMap Vue expone la funcion nextTick para esperar un render.Amazing:
+
+  if (newVal) nextTick(() => initMap());
+
+      VIDEO 336 POPUPS Y MARCADORES
+
+Realmente es simplemente leeer su documentación,pero para crear marcadores necesitaré una posicion y añadirlos al mapa y los popups hay que añadirlos a algun elemento,como un marcador:
 
 
+  const myLocationPopup = new Mapboxgl.Popup({
+      offset: [0, -35],
+      maxWidth:"none",
+      closeButton: false,
+    }).setLngLat(userLocation.value).setHTML(`
+    <h4>Aquí estoy</h4>
+    <p>Actualmente en Bizkaia</p>
+    `);
 
+   // crear marcador new Marker(options).setLngLat([number,number]).addTo(MapboxMap)
+    new Mapboxgl.Marker()
+      .setLngLat(userLocation.value)
+      .setPopup(myLocationPopup)
+      .addTo(map);
+
+Ahora se nos presenta un problema,y es que necesitamos la instancia del mapa de forma global y en singleton,ya que queremos añadir cosas a ese mapa,al mismo siempre.
+
+      VIDEO 337 MODULO MAP
+
+Eventualmente vamos a querer tener acceso al mapa desde otros componentes(como el boton de regresar a mi ubicación o agregar marcadores dinámicos).El mapa debe estar en un ámbito global(la instancia).
+
+Este nuevo MapState lucirá asi:
+
+import Mapboxgl from "mapbox-gl";
+
+export interface MapState {
+  // el mapa será undefined mientras carga inicialmente.
+  map?: Mapboxgl.Map;
+  markers: Mapboxgl.Marker[];
+  // distancia y duracion del trayecto
+  distance?: number;
+  duration?: number;
+}
+
+function state(): MapState {
+  return {
+    map: undefined,
+    markers: [],
+    distance: undefined,
+    duration: undefined,
+  };
+}
+
+export default state;
+
+El siguiente paso será establecer el mapa en el store
+
+    VIDEO 338 MUTATION SET MAP
+
+Dado que establecer el mapa es una accion sincrona vamos a usar una mutation:
+
+const mutation: MutationTree<MapState> = {
+  setMap(state, payload: Mapboxgl.Map) {
+    return (state.map = payload);
+  },
+};
+
+Y vamos a crear una composable function que simplemente exponga las entradas al store(fijate que en este punto pueden tomarse varios caminos como simplemente llamar al store en el componente y disparar esa mutation,pero diria que nunca será mala idea crear estos refactors que quedan super reutilizables):
+
+export const useMapStore = () => {
+
+  const store = useStore<RootState>();
+
+  return {
+    map: computed(() => store.state.map.map),
+    distance: computed(() => store.state.map.distance),
+    duration: computed(() => store.state.map.duration),
+    // fijate que la mutation no es una computed
+    setMap: (map: Mapboxgl.Map) => store.commit('map/setMap',map)
+  }
+}
+
+NOTA: fijate que el hook simplemente expone lo que queremos,no necesitó lógica en el body,me está confundiendo esto y limitando,pero es una simple funcion,asinto,puede hacer lo que yo quiera
+Ya solo es llamar al setMap(pero no va a disparar el setter de nuevo??):
+  const { setMap } = useMapStore();
+
+    VIDEO 339 BOTON PARA VOLVER A LA UBICACION CENTRAL
+
+En este punto es muy sencillo todo,pero fijate en un par de cosas:
+Primero: a las computed tengo que acceder con .value tmb
+Segundo: es realmente buena idea crear tantas computed ??
+
+Tercero: puedo crear una computed que sea la mezcla de otras dos,recuerda que las boolean las tengo que tipar o vienen como computed<any>(supongo que esto será extensible a casi todo más adelante)
+
+Aparte de estas dudas fijate que el método es map.flyTo(options) para que vuelva con una animacion muy bonita:
+
+ setup() {
+
+    const { map,isMapReady } = useMapStore();
+    const { userLocation,isUserLocationReady } = useGeolocationStore();
+
+    const goToOriginalPosition = () => {
+      if (!map.value) return;
+      if (!userLocation.value) return;
+
+      map.value.flyTo({
+        center: userLocation.value,
+        zoom: 12,
+      });
+    };
+
+    return {
+      isBtnReady: computed<boolean>(() => isUserLocationReady.value && isMapReady.value),
+      goToOriginalPosition,
+    };
+  },
+
+  Y el botón lo mostramos con un v-if computando esa computed.Genial:
+  <button v-if="isBtnReady"  class="btn btn-primary" @click="goToOriginalPosition">Ir a mi ubicación</button>
+
+        VIDEO 340 SEARCH-RESULTS COMPONENT 
+
+Video de maquetacion.Ojo con el error de la etiqueta script y su atributo src.
+
+    VIDEO 341 IMPLEMENTAR DEBOUNCE MANUALMENTE
+
+Implementaremos un debounce para que no tire una peticion el input de los venues en cada keyPress.
+NOTA: el input de Quasar ya viene con esta feature,pero como estamos con Bootstrap montremos uno manualmente
+
+Lo que vamos a hacer es bastante sencillo(y extrapolable a cualquier fwk).Crearemos dos states,uno al valor final y otro al timer:
+
+const timer = ref();
+const finalValue = ref('');
+
+return {
+  finalValue,
+  searchTerm: computed({
+    get(){ return finalValue.value},
+    set(val:string){
+      // si ya hay un timer lo primero es limpiarlo,es decir,que el usuario en cuanto escriba lo primero que va a hacer el borrar el timer
+      if(timer.value) clearTimeout(timer.value);
+      // y volvemos a montar el timer,y cuando el usuario deje de escribir siempre tendrá un timer nuevo que al de 500ms establecerá el valor 
+      timer.value = setTimeout(() => {
+        finalValue.value = val
+      },500)
+      }
+  })
+}
+
+En React podriamos hacer lo mismo
+const [timer,setTimer] = useState<Node.Timer>(null);
+const [finalValue,setFinalValue] = useState(")
+* en el onChange del input
+const handleChange = (evt) => {
+  if(timer) clearTimeout(timer);
+  setTimer(setTimeout(() => {
+    setFinalValue(evt.target.value)
+  },500));
+}
+Y al JSX expongo(o a la peticion) el getter finalValue
+
+      VIDEO 342 MAPBOX SEARCH API E INTERFACES
+
+Docu para su Search API: https://docs.mapbox.com/playground/geocoding/
+Tenemos que hacer un GET con varios queryParams.Ejemplo:
+
+https://api.mapbox.com/geocoding/v5/mapbox.places/-74.01376728733808,40.78241512806966.json?limit=1&access_token=YOUR_MAPBOX_ACCESS_TOKEN
+
+Empecemos creando la action:
+  async searchPlacesByTerm({commit,state},query:string) {
+   console.log('vuex: ',query) 
+  }
+Y la exponemos por el hook usando buenas prácticas:
+   searchPlacesByTerm: (term = "") => store.dispatch("geolocation/searchPlacesByTerm", term),
+Ya solo es llamarla en el setter de la computed property
+
+    VIDEO 343 REALIZAR PETICION HTTP
+
+Lo primero es instalar axios.Despues creamos una instancia con nuestros params(fijate que podemos poner en duro varios):
+
+const searchApi = axios.create({
+  baseURL: 'https.//...',
+  params:{
+    limit:5,
+    language:'es',
+    access_token:'pk.ey...'
+  }
+})
+Obviamente falta alguno que será dinámico.Esto debo interpretarlo correctamente siempre.
+
+Y ya con esta instancia podemos realizar la peticion en la action.Fijate que nos falta el params proximity y el segmento de busqueda dinámico:
+
+  const resp = await searchApi.get<PlacesResponse>(`/${query}.json`,{
+    params:{
+      proximity: state.userLocation?.join(',')
+    }
+   })
+Ojo que los params van concatenados con una coma,join nos viene perfecto para pasar de un array a una concatenacion de strings con el separador que le indiquemos.
+
+    VIDEO 344 ALMACENAR LA BUSQUEDA EN EL STORE
+
+Creamos dos propiedades más en el state del modulo(isLoadingPlaces y places de tipo Feature[]).Creamos las mutations que cambien ese state:
+  
+  setIsLoadingPlaces(state, loading: boolean) {
+    state.isLoadingPlaces = loading;
+  },
+  setPlaces(state, places: Feature[]) {
+    state.places = places;
+  },
+
+Ya solo es commitear estas mutations en la action y comprobar que se guardan los 5 places en el store:
+  async searchPlacesByTerm({ commit, state }, query: string): Promise<Feature[]> {
+    if (query.length === 0) {
+      commit("setPlaces", []);
+      return [];
+    }
+
+    commit("setIsLoadingPlaces", true);
+    const resp = await searchApi.get<PlacesResponse>(`/${query}.json`, {
+      params: {
+        proximity: state.userLocation?.join(","),
+      },
+    });
+    commit("setIsLoadingPlaces", false);
+    commit("setPlaces", resp.data.features);
+    return resp.data.features;
+  },
+
+  VIDEO 345 MOSTRAR LA BUSQUEDA EN EL COMPONENTE DE RESULTADOS
+
+Exponemos mediante el hook el loading y los places y los mandamos a la template para iterar con un v-for:
+
+  const { places, isLoadingPlaces } = useGeolocationStore();
+  return {
+    places,
+    isLoadingPlaces,
+  };
+
+  En la template iteramos(fijate en el uso del v-else-if para comprobar,muy interesante):
+   
+   <!-- loading -->
+  <div v-if="isLoadingPlaces" class="alert alert-primary text-center">
+    <h5>Cargando</h5>
+    <span>Espere por favor...</span>
+  </div>
+<!-- realmente no es un v-else sino un v-else-if  -->
+  <ul class="list-group mt-2 mb-1" v-else-if="places.length > 0">
+    <li
+      v-for="place in places"
+      :key="place.id"
+      class="list-group-item list-group-item-action"
+    >
+      <h5>{{ place.text_es }}</h5>
+      <p>
+        {{ place.place_name_es }}
+      </p>
+      ...
+
+    VIDEO 346 ACTIVAR LUGAR Y MOVER LA CÁMARA
+
+Cuando hagamos click en un <li> queremos poner ese list-item activo y mostrar la polyline(y mover la camara hacia ese destino tmb).Fijate que hay varias formas de crear clases condicionales,ya que no siempre voy a necesitar un ternario:
+
+ <li
+      v-for="place in places"
+      :key="place.id"
+      class="list-group-item list-group-item-action"
+      :class="{'active':place.id === activePlace}"
+      @click="() => onPlaceClicked(place)"
+    >
+      <h5>{{ place.text_es }}</h5>
+      <p>
+        {{ place.place_name_es }}
+      </p>
+      <div class="text-end">
+        <button
+          class="btn"
+          :class="place.id === activePlace ? 'btn-outline-light' : 'btn-outline-primary'"
+        >
+          Direcciones
+        </button>
+      </div>
+    </li>
+
+Fijate tmb como hay que pasar todo el place para hacer el flyTo
+
+      VIDEO 347 COLOCAR MARCADOR EN CADA LUGAR ENCONTRADO
+
+      

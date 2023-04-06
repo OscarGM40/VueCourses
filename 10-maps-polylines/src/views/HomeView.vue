@@ -1,15 +1,23 @@
 <template>
-  <div class="home">
-    <img alt="Vue logo" src="../assets/logo.png">
-  </div>
+  <MapView />
+  <MyLocationBtn />
+  <SearchBar />
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { useGeolocationStore } from "@/composables";
+import { defineComponent } from "vue";
 
+// fijate que tengo que apuntar al MapView.vue(que es un componente de Vue además) ya que si dejo solo MapView apunto al TS y eso no es nada.hay que apuntar al .vue
+import MapView from "@/components/mapview/MapView.vue";
+import MyLocationBtn from "@/components/my-location-btn/MyLocationBtn.vue";
+import SearchBar from "@/components/search-bar/SearchBar.vue";
 
 export default defineComponent({
-  name: 'HomeView',
-  components: {}
+  name: "HomeView",
+  components: { MapView, MyLocationBtn, SearchBar },
+  setup() {
+    useGeolocationStore();
+  },
 });
 </script>

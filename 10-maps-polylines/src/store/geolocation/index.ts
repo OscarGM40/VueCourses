@@ -1,12 +1,12 @@
 import { Module } from "vuex";
 import { RootState } from "..";
 
-import state, { ExampleStateInterface } from "./state";
+import state, { GeolocationState } from "./state";
 import actions from "./actions";
 import getters from "./getters";
 import mutations from "./mutations";
 
-const exampleModule: Module<ExampleStateInterface, RootState> = {
+const geolocationModule: Module<GeolocationState, RootState> = {
   namespaced: true,
   actions,
   getters,
@@ -14,4 +14,4 @@ const exampleModule: Module<ExampleStateInterface, RootState> = {
   state,
 };
 
-export default exampleModule;
+export default geolocationModule;
