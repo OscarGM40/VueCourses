@@ -1198,4 +1198,191 @@ Fijate tmb como hay que pasar todo el place para hacer el flyTo
 
       VIDEO 347 COLOCAR MARCADOR EN CADA LUGAR ENCONTRADO
 
+Para borrar un marcador no basta con borrarlo del arreglo en el store,sino que hay que llamar a un método de la libreria Mapbox en este caso.
+
+Todo va a comenzar con un listener en los places,que es justo lo que queremos.Adicionalmente hay que limpiar el place activo,ojo:
+   watch(places, (newPlaces) => {
+      activePlace.value = "";
+      setMarkers(newPlaces);
+    });
+
+
+Despues creamos una mutation barriendo los places,etc:
+  setMarkers(state, payload: Feature[]) {
+    // para borrar los marcadores hay que llamar a remove y reasignar a un arreglo vacio
+    state.markers.forEach((marker) => marker.remove());
+    state.markers = [];
+
+    payload.forEach((feature) => {
+      const [lng, lat] = feature.center;
+      const popup = new Mapboxgl.Popup({
+        offset: [0, -35],
+        maxWidth: "none",
+        closeButton: false,
+      }).setLngLat([lng, lat]).setHTML(`
+          <h4>${feature.text_es}</h4>
+          <p>${feature.place_name_es}</p>
+      `);
+      const marker = new Mapboxgl.Marker()
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        .addTo(state.map!);
+      state.markers.push(marker);
+    });
+  },
+
+    VIDEO 348 OBTENER RUTA ENTRE DOS PUNTOS
+
+Directions API: https://docs.mapbox.com/api/navigation/directions/
+Playground: https://docs.mapbox.com/playground/directions/
+
+Nos queda que al darle click en el botón Direcciones(quizás mejor otro nombre) se trace la ruta entre la ubicación actual y el marcador.Mapbox ya ofrece todo esto en su API.
+
+NOTA: para estas operaciones usaremos la directions API(dentro de Navigations).Fijate que anteriormente hemos usado la Search API
+
+Un ejemplo de llamada seria(es un GET):
+https://api.mapbox.com/directions/v5/mapbox/driving/-74.507147%2C40.567768%3B-73.564294%2C40.76997?alternatives=true&geometries=geojson&language=en&overview=simplified&steps=true&access_token=pk.eyJ1Ijoib3NjYXJnbTQwIiwiYSI6ImNrbHhoZ2I0dTNhMmsydm4xdGhlaHF3MzAifQ.vyYKwnF9auoGxBwkI6LivA
+
+Donde driving podia ser tmb (traffic | walking | cycling), alternatives a true traza otras posibles rutas y steps a true muestra una guia con los steps a seguir
+
+NOTA:en los tipos para el queryParam geometries usaremos geojson pero Fernando recalca que polyline tmb es una opcion que el enseña en su curso de Flutter pero hay que decodificar la polyline
+
+Asi pues tras analizar el endpoint creamos otra instancia de axios para fijar los params(muy útil esto).
+
+const directionsApi = axios.create({
+  baseURL:
+    "https://api.mapbox.com/directions/v5/mapbox/driving",
+  params: {
+    alternatives: false,
+    geometries: "geojson",
+    overview: "simplified",
+    steps: false,
+    access_token: process.env.VUE_APP_MAPBOX_KEY,
+  },
+});
+
+NOTA: falta un segmento con las coordenadas,pero fijate que 3B significa punto y coma luego será /driving/lng,lat;lng,lat&params
+donde la primera lng,lat es el starting point y la segunda el ending point.
+Por último tipamos la Response con quicktype.io
+
+    VIDEO 349 OBTENER INFORMACIÓN DE LA RUTA POR PLACE
+
+Realmente no tiene mucho realizar la peticion,pero fijate que es una action.La meteremos en el modulo del map.Fijate que join viene que ni pintado:
+
+export type LngLat = [number, number];
+export interface ITraceRouteArgs {
+  start: LngLat;
+  end: LngLat;
+}
+const actions: ActionTree<MapState, RootState> = {
+  async traceRoute({ commit }, { start, end }: ITraceRouteArgs) {
+    const resp = await directionsApi.get<DirectionsResponse>(
+      `/${start.join(",")};${end.join(",")}`,
+    );
+    // solo nos interesa la primera ruta,y de ella sus coordenadas
+    console.log(resp.data.routes[0].geometry.coordinates);
+  },
+};
+
+Fijate de nuevo que usar un hook para centralizar el acceso al store parece una buena solución para aplicaciones pequeñas.Ya solo falta definir la funcionalidad para el click sobre el boton de trazar ruta:
+  <button
+    class="btn"
+    :class="place.id === activePlace ? 'btn-outline-light' : 'btn-outline-primary'"
+    @click.self="() => traceRoute(place.center)"
+  >
+  Trazar ruta
+  </button>
+
+  const traceRoute = (end: number[]) => {
+  if (!userLocation.value) return;
+  const start = userLocation.value;
+  getRouteBetweenPoints(start, end as LngLat);
+};
+
+      VIDEO 350 MOSTRAR LA POLYLINE EN EL MAPA
+
+En este punto y teniendo ya todo el arreglo de arreglos de coordenadas que nos devuelve la petición a directions Api basado en dos puntos simplemente es seguir su documentación.
+Fijate como hay varios pasos/abstracciones a seguir para agregar esta linea:
+
+
+  setRoutePolyline(state, coords: number[][]) {
+    const start = coords[0];
+
+    // NOTA: agregar una Boundary se asegura que la Polyline quepa en el mapa,redimensionandolo segun la Boundary
+
+    // PASO UNO : definir unas Boundaries con la clase LngLatBounds,empezarán en el punto inicial
+    const bounds = new Mapboxgl.LngLatBounds(
+      // porque repetimos las mismas coords ??
+      [start[0], start[1]],
+      [start[0], start[1]],
+    );
+    // PASO 1.5 ir agregando más puntos/coordenadas a la Boundary con el método extend
+    coords.forEach((coord) => {
+      const newCoord: LngLat = [coord[0], coord[1]];
+      bounds.extend(newCoord);
+    });
+
+    // PASO DOS : agregar esta Boundary al mapa con map.fitBounds(hay que dar un pequeño padding general en las options del segundo argumento)
+    state.map?.fitBounds(bounds, {
+      padding: 300,
+    });
+
+    // PASO TRES: definir una Source(ojo con el tipo)
+    const sourceData: Mapboxgl.AnySourceData = {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: coords,
+            },
+          },
+        ],
+      },
+    };
+    
+    // PASO CUATRO añadir esa source.Ojo,el primer argumento pide un string que debe ser el ID de la capa del paso cinco.Ojo,si ya hubiera una Layer con el mismo ID debo borrar la capa y el Source
+    const MY_LINE_ID = "MyPolylineLayer";
+    if (state.map?.getLayer(MY_LINE_ID)) {
+      state.map?.removeLayer(MY_LINE_ID);
+      state.map?.removeSource(MY_LINE_ID);
+    }
+    // NOTA: addSource va a crear una Source con el mismo ID que la capa,asi que al añadir o borrar la capa o la source los literales van a coincidir.Además las propiedades id y source de la Layer tienen el mismo literal como valor obviamente
+    state.map?.addSource(MY_LINE_ID, sourceData);
+
+    // PASO CINCO añadir la Layer(la Polyline).Ojo que el ID debe hacer match con el step 4
+    state.map?.addLayer({
+      id: MY_LINE_ID,
+      type: "line",
+      source: MY_LINE_ID,
+      layout: {
+        "line-cap": "round", //bordecitos de la linea redondeados
+        "line-join": "round",
+      },
+      paint: {
+        "line-color": "black", // cualquier color o hexadecimal
+        "line-width": 3,
+      },
+    });
+  },
+
+        VIDEO 351 BORRAR LA POLYLINE
+
+Si cambian los marcadores no tiene sentido que siga la polyline,asi pues en la mutation setmarkeers podemos resetearla perfectamente al final de la mutation:
+
+    // si los marcadores han cambiado no tiene sentido tener la polyline
+    if (state.map.getLayer(MY_LINE_ID)) {
+      state.map.removeLayer(MY_LINE_ID);
+      state.map.removeSource(MY_LINE_ID);
+      state.distance = undefined;
+      state.duration = undefined;
+    }
+
+      VIDEO 352 ALMACENAR DISTANCIA Y DURACION
+
       

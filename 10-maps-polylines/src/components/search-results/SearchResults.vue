@@ -23,8 +23,9 @@
         <button
           class="btn"
           :class="place.id === activePlace ? 'btn-outline-light' : 'btn-outline-primary'"
+          @click.self="() => traceRoute(place.center)"
         >
-          Direcciones
+        Trazar ruta
         </button>
       </div>
     </li>

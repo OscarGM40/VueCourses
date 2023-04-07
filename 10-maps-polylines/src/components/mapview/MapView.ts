@@ -28,7 +28,7 @@ export default defineComponent({
         // starting position [lng, lat]
         center: userLocation.value,
         // starting zoom
-        zoom: 12,
+        zoom: 11,
         // override default key
         accessToken: process.env.VUE_APP_MAPBOX_KEY,
       });
@@ -37,7 +37,7 @@ export default defineComponent({
       const myLocationPopup = new Mapboxgl.Popup({
         offset: [0, -35],
         maxWidth: "none",
-        closeButton: false,
+        closeButton: true,
       }).setLngLat(userLocation.value).setHTML(`
           <h4>Aquí estoy</h4>
           <p>Actualmente en Bizkaia</p>

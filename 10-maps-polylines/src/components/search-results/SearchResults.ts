@@ -1,13 +1,19 @@
 import { useGeolocationStore, useMapStore } from "@/composables";
 import { Feature } from "@/interfaces/places";
-import { defineComponent, ref } from "vue";
+import { LngLat } from "@/store/map/actions";
+import { defineComponent, ref, watch } from "vue";
 
 export default defineComponent({
   name: "SearchResults",
   setup() {
-    const { places, isLoadingPlaces } = useGeolocationStore();
-    const { map } = useMapStore();
+    const { places, isLoadingPlaces, userLocation } = useGeolocationStore();
+    const { map, setMarkers, getRouteBetweenPoints } = useMapStore();
     const activePlace = ref();
+
+    watch(places, (newPlaces) => {
+      activePlace.value = "";
+      setMarkers(newPlaces);
+    });
 
     const onPlaceClicked = (place: Feature) => {
       activePlace.value = place.id;
@@ -16,8 +22,14 @@ export default defineComponent({
       console.log({geometry:place.geometry.coordinates}) */
       map.value?.flyTo({
         center: [place.geometry.coordinates[0], place.geometry.coordinates[1]],
-        zoom: 13,
+        zoom: 11,
       });
+    };
+
+    const traceRoute = (end: number[]) => {
+      if (!userLocation.value) return;
+      const start = userLocation.value;
+      getRouteBetweenPoints(start, end as LngLat);
     };
 
     return {
@@ -25,6 +37,7 @@ export default defineComponent({
       isLoadingPlaces,
       activePlace,
       onPlaceClicked,
+      traceRoute,
     };
   },
 });
