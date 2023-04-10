@@ -50,13 +50,11 @@ export default defineComponent({
     onMounted(() => {
       // puede ser que primero se monte y despues tengamos la geolocalizacion
       if (isUserLocationReady.value) return initMap();
-      console.log("no tengo localizacion aun");
     });
 
     watch(
       isUserLocationReady,
       (newVal) => {
-        // console.log({ newVal });
         if (newVal) nextTick(() => initMap());
       },
       { immediate: false },

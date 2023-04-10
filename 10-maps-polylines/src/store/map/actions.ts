@@ -14,7 +14,11 @@ const actions: ActionTree<MapState, RootState> = {
     const resp = await directionsApi.get<DirectionsResponse>(
       `/${start.join(",")};${end.join(",")}`,
     );
-    // TODO distancia y duracion
+    // distancia y duracion
+    commit("setDistanceAndDuration",{
+      distance:resp.data.routes[0].distance,
+      duration:resp.data.routes[0].duration,
+    });
     // solo nos interesa la primera ruta,y de ella sus coordenadas
     commit("setRoutePolyline",resp.data.routes[0].geometry.coordinates);
   },

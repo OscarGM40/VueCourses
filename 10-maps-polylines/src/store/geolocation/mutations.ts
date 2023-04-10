@@ -5,7 +5,6 @@ import { Feature } from "@/interfaces/places";
 const mutation: MutationTree<GeolocationState> = {
   setLngLat(state: GeolocationState, coords: GeolocationCoordinates) {
     // coors es un objeto de tipo GeolocationCoordinates con varias propiedades,entre ellas latitude y longitued
-    // console.log({ coords });
 
     state.userLocation = [coords.longitude, coords.latitude];
     state.isLoading = false;

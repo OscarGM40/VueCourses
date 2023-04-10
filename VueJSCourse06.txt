@@ -1385,4 +1385,40 @@ Si cambian los marcadores no tiene sentido que siga la polyline,asi pues en la m
 
       VIDEO 352 ALMACENAR DISTANCIA Y DURACION
 
-      
+Esto es relativamente sencillo,lo único que la duración viene en segundos y la distancia en metros.
+
+TIP: Se que ya paso un tiempo pero contesto por si tienes todavía la duda tratare de responderla y por si alguien mas tiene esta duda:
+
+{ distance, duration }: { distance: number, duration: number }
+
+ esto es similar a decir
+
+data: { distance: number, duration: number }
+
+solo que de forma destructurada para no tener que definir despues distance y duration, de esta forma es "dato: tipo"
+
+si solo pones
+
+{ distance: number, duration: number }
+
+Te dara un problema de identificador duplicado y eso se debe a que trata de hacer 2 variables con el nombre de "number"
+
+Cuando se destructura y se tiene ":" esto indica renombramiento y no tipado
+
+"property: newVariable"
+Fijate que el error era por querer darle el mismo alias llamado 'number'.Investigar más      
+
+      VIDEO 353 MOSTRAR LA DISTANCIA Y LA DURACION
+
+Creamos un componente con un div como wrapper y lo ponemos en fixed.Simplemente que consuma el store:
+<template>
+
+  <div class="trip-container column" v-if="distance && duration">
+    <div class="col">Distancia: {{ distance }} <span>kms</span></div>
+    <div class="col">Duracion: {{ duration }} <span>minutos</span></div>
+  </div>
+</template>
+
+      VIDEO 354 DESPLEGAR APLICACIÓN
+
+ Simplemente hacemos el yarn build para que haga el build(aqui hará el tree shaking).Lo llevará a una carpeta dist,la cual simplemente arrastramos en Netlify.Cambiamos el dominio,etc

@@ -18,8 +18,6 @@ export default defineComponent({
     const onPlaceClicked = (place: Feature) => {
       activePlace.value = place.id;
       // tm estaba en place.center
-      /*      console.log({center:place.center})
-      console.log({geometry:place.geometry.coordinates}) */
       map.value?.flyTo({
         center: [place.geometry.coordinates[0], place.geometry.coordinates[1]],
         zoom: 11,

@@ -5,13 +5,20 @@ import { Feature } from "@/interfaces/places";
 import { LngLat } from "./actions";
 
 const MY_LINE_ID = "MyPolylineLayer";
-
 const mutation: MutationTree<MapState> = {
   setMap(state, payload: Mapboxgl.Map) {
     if (state.map === undefined) {
       state.map = payload;
     }
     return;
+  },
+  setDistanceAndDuration(state,payload:{distance:number,duration:number}){
+    // tenemos que hacer algunas conversiones.Este es el punto ideal
+    let kms = payload.distance/1000;
+    kms = Math.round(kms*100)
+    kms /= 100;
+    state.distance = kms;
+    state.duration = Math.floor(payload.duration/60);
   },
 
   setMarkers(state, payload: Feature[]) {
@@ -105,7 +112,7 @@ const mutation: MutationTree<MapState> = {
         "line-join": "round",
       },
       paint: {
-        "line-color": "black", // cualquier color o hexadecimal
+        "line-color": "red", // cualquier color o hexadecimal
         "line-width": 3,
       },
     });
